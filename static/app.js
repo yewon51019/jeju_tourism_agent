@@ -17,6 +17,26 @@ const OPTION_ACTIVE = 'font-semibold border-tangerine bg-tangerine-light text-[#
 const $ = (id) => document.getElementById(id);
 const state = { question: '', answers: {}, report: null, running: false, charts: {} };
 
+// Firebase Hosting에는 Python 서버가 없어 미리 계산한 분석 결과를 재생한다.
+const STATIC_DEMO = window.JEJU_STATIC_DEMO === true;
+let demoData = null;
+
+async function loadDemo() {
+  if (!demoData) demoData = await (await fetch('/static/demo.json')).json();
+  return demoData;
+}
+
+async function replayDemo(question, answers) {
+  const demo = await loadDemo();
+  const key = answers ? [question, answers.region, answers.theme, answers.age].join('||') : question;
+  const events = demo.runs[key];
+  if (!events) throw new Error('공개 데모에서는 예시 질문만 분석할 수 있습니다. 예시 질문을 선택해 주세요.');
+  for (const event of events) {
+    handleEvent(event);
+    await new Promise((resolve) => { setTimeout(resolve, 180); });
+  }
+}
+
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 }
@@ -252,6 +272,10 @@ async function runAnalysis(question, answers = null) {
   resetPipeline();
   $('reportSection').classList.add('hidden');
   try {
+    if (STATIC_DEMO) {
+      await replayDemo(question, answers);
+      return;
+    }
     const response = await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -371,7 +395,7 @@ async function deleteKey() {
 
 async function loadStatus() {
   try {
-    const status = await (await fetch('/api/status')).json();
+    const status = STATIC_DEMO ? (await loadDemo()).status : await (await fetch('/api/status')).json();
     if (!status.ready) {
       $('dataBadgeText').textContent = '데이터 오류';
       showToast(status.error, 'warning');
@@ -384,6 +408,11 @@ async function loadStatus() {
     $('keyDeleteBtn').classList.toggle('hidden', !status.llm);
     $('sampleBanner').classList.toggle('hidden', !status.isSample);
     $('footerSource').textContent = `데이터: ${status.source}`;
+    if (STATIC_DEMO) {
+      $('modeBadge').textContent = '공개 데모';
+      $('keyBtn').classList.add('hidden');
+      document.querySelector('#sampleBanner p').textContent = '공개 데모입니다. 합성 샘플 데이터로 미리 계산한 예시 질문만 제공하며, 화면의 수치는 실제 제주 관광 통계가 아닙니다.';
+    }
     $('qualityBox').innerHTML = status.quality.map((q) => `<p>${escapeHtml(q)}</p>`).join('');
   } catch {
     showToast('서버 상태를 확인할 수 없습니다.', 'warning');

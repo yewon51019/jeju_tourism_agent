@@ -34,7 +34,8 @@ def _reject_report(args: dict[str, Any], box: ToolBox) -> str | None:
     unverified = [r.id for r in results if not r.verified]
     if unverified:
         return f"검증을 통과하지 않은 결과입니다: {', '.join(unverified)}. verify_result를 먼저 실행해 주세요."
-    text = " ".join([args["summary"], *[f"{a['title']} {a['desc']}" for a in args["actions"]]])
+    text = " ".join([args["title"], args["summary"], args["intent"],
+                     *[f"{a['badge']} {a['title']} {a['desc']}" for a in args["actions"]]])
     invalid = unsupported_numbers(text, results)
     if invalid:
         return f"분석 결과에 없는 수치입니다: {', '.join(invalid)}. 도구 결과의 값으로 고쳐 다시 제출해 주세요."

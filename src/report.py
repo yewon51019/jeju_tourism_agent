@@ -7,7 +7,8 @@ from typing import Any
 from .data_pipeline import DataStore
 from .tools.analysis import FILTER_LABELS, Result
 
-_NUMBER = re.compile(r"(\d[\d,]*(?:\.\d+)?)\s*(%|퍼센트|억\s*원|억|만\s*원|만\s*명|만|원|명|건)")
+_NUMBER = re.compile(r"(?<![\d.,])([+\-−]?)(\d[\d,]*(?:\.\d+)?)\s*(%|퍼센트|억\s*원|억|만\s*원|만\s*명|만\s*건|만|원|명|건)")
+_WON_PREFIX = re.compile(r"₩\s*(\d[\d,]*(?:\.\d+)?)")
 _SCALE = {"억": 1e8, "만": 1e4}
 
 
@@ -36,16 +37,18 @@ def signed(value: float | None) -> str:
 
 
 def _pools(results: list[Result]) -> dict[str, list[float]]:
-    pools: dict[str, list[float]] = {"percent": [], "money": [], "count": []}
+    pools: dict[str, list[float]] = {"percent": [], "money": [], "users": [], "count": []}
 
     def collect(key: str, value: Any) -> None:
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             return
         if "share" in key or "yoy" in key:
-            pools["percent"].append(abs(float(value)))
+            pools["percent"].append(float(value))
         elif "amount" in key or key.startswith("per_"):
             pools["money"].append(abs(float(value)))
-        elif "users" in key or "count" in key:
+        elif "users" in key:
+            pools["users"].append(abs(float(value)))
+        elif "count" in key:
             pools["count"].append(abs(float(value)))
 
     for result in results:
@@ -60,11 +63,24 @@ def _pools(results: list[Result]) -> dict[str, list[float]]:
 def _pool_for(unit: str, pools: dict[str, list[float]]) -> list[float]:
     if unit in ("%", "퍼센트"):
         return pools["percent"]
-    if unit in ("명", "건", "만명"):
+    if unit in ("명", "만명"):
+        return pools["users"]
+    if unit in ("건", "만건"):
         return pools["count"]
     if unit == "만":
-        return pools["money"] + pools["count"]
+        return pools["money"] + pools["users"] + pools["count"]
     return pools["money"]
+
+
+def _is_supported(sign: str, raw: str, unit: str, pools: dict[str, list[float]]) -> bool:
+    value, decimals = float(raw), len(raw.split(".")[1]) if "." in raw else 0
+    scale = _SCALE.get(unit[0], 1)
+    for item in _pool_for(unit, pools):
+        if round(abs(item) / scale, decimals) != value:
+            continue
+        if unit not in ("%", "퍼센트") or not sign or (item < 0) == (sign in "-−"):
+            return True
+    return False
 
 
 def unsupported_numbers(text: str, results: list[Result]) -> list[str]:
@@ -72,11 +88,11 @@ def unsupported_numbers(text: str, results: list[Result]) -> list[str]:
     pools = _pools(results)
     invalid = []
     for match in _NUMBER.finditer(text):
-        raw, unit = match.group(1).replace(",", ""), match.group(2).replace(" ", "")
-        value, decimals = float(raw), len(raw.split(".")[1]) if "." in raw else 0
-        scale = _SCALE.get(unit[0], 1)
-        valid = any(round(item / scale, decimals) == value for item in _pool_for(unit, pools))
-        if not valid:
+        raw, unit = match.group(2).replace(",", ""), match.group(3).replace(" ", "")
+        if not _is_supported(match.group(1), raw, unit, pools):
+            invalid.append(match.group(0))
+    for match in _WON_PREFIX.finditer(text):
+        if not _is_supported("", match.group(1).replace(",", ""), "원", pools):
             invalid.append(match.group(0))
     return invalid
 
@@ -100,7 +116,7 @@ def build_kpis(results: list[Result]) -> list[dict[str, str]]:
                      "sub": f"최저: {rank.facts['bottom_name']} ({signed(rank.facts['bottom_yoy'])})"})
     if trend:
         facts = trend.facts
-        kpis.append({"label": "연중 최고 소비 시기", "accent": "tangerine" if not kpis else "leaf",
+        kpis.append({"label": "분석 기간 최고 소비 시기", "accent": "tangerine" if not kpis else "leaf",
                      "value": month_label(facts["peak_month"]),
                      "sub": f"분석 기간 이용금액의 {facts['peak_share']}% · {money(facts['peak_amount'])}"})
     if weekday:
@@ -193,8 +209,7 @@ def build_payload(question: str, title: str, summary: str, intent: str, actions:
     checks = [{"result": r.id, **c} for r in results for c in r.checks]
     passed = sum(1 for c in checks if c["status"] == "pass")
     warnings = sum(1 for c in checks if c["status"] == "warning")
-    users = sum(float(r.facts.get("total_users", 0)) for r in results if r.kind != "weekday")
-    filters = " / ".join(_scope_of(r) or "전체" for r in results)
+    filters =" / ".join(_scope_of(r) or "전체" for r in results)
     return {
         "title": title, "question": question, "summary": summary, "mode": mode,
         "meta": f"분석 기준: {filters}", "tags": condition_tags(results),
@@ -203,5 +218,5 @@ def build_payload(question: str, title: str, summary: str, intent: str, actions:
         "verification": {"passed": passed, "warnings": warnings, "total": len(checks), "items": checks},
         "data": {"source": store.source, "period": store.period, "isSample": store.is_sample},
         "log": {"intent": intent, "tools": calls, "filters": filters,
-                "validation": f"검증 {len(checks)}건 중 통과 {passed}건, 경고 {warnings}건 · 분석 이용자 누적 {users:,.0f}명"},
+                "validation": f"검증 {len(checks)}건 중 통과 {passed}건, 경고 {warnings}건"},
     }

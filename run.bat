@@ -1,16 +1,36 @@
 @echo off
 chcp 65001 >nul
 cd /d "%~dp0"
+set "CHECK=import sys; sys.exit(0 if sys.version_info >= (3, 12) else 1)"
 
-if exist ".venv\Scripts\python.exe" goto install
-where py >nul 2>nul
-if %errorlevel%==0 (
-  py -3 -m venv .venv
-) else (
-  python -m venv .venv
+if exist ".venv\Scripts\python.exe" (
+  ".venv\Scripts\python.exe" -c "%CHECK%" >nul 2>nul
+  if errorlevel 1 (
+    echo The .venv folder uses an unsupported Python version.
+    echo Delete the .venv folder, install Python 3.12 or later, and run this file again.
+    pause
+    exit /b 1
+  )
+  goto install
 )
-if not exist ".venv\Scripts\python.exe" (
+
+set "PY="
+for %%V in (3.14 3.13 3.12) do (
+  if not defined PY (
+    py -%%V -c "%CHECK%" >nul 2>nul && set "PY=py -%%V"
+  )
+)
+if not defined PY (
+  python -c "%CHECK%" >nul 2>nul && set "PY=python"
+)
+if not defined PY (
   echo Python 3.12 or later is required. Install Python and run this file again.
+  pause
+  exit /b 1
+)
+%PY% -m venv .venv
+if errorlevel 1 (
+  echo Could not create the virtual environment.
   pause
   exit /b 1
 )

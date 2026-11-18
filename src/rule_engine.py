@@ -81,9 +81,11 @@ def parse_question(question: str, answers: dict[str, str] | None, store: DataSto
     filters = parsed.filters
 
     regions = store.values("시군구")
-    region = next((r for r in regions if r in q), None)
-    if region is None and "서귀포" in q and "서귀포시" in regions and "올레시장" not in q:
-        region = "서귀포시"
+    mentioned = [r for r in regions if r in q or (r == "서귀포시" and "서귀포" in q and "올레시장" not in q)]
+    compare_regions = len(mentioned) > 1
+    region = mentioned[0] if len(mentioned) == 1 else None
+    if compare_regions:
+        parsed.intent = "rank"
     parsed.district = _match_district(q, store)
     town = next((t for t in TOWN_REGION if t in q), None)
     if region:
@@ -136,6 +138,8 @@ def parse_question(question: str, answers: dict[str, str] | None, store: DataSto
     if town and "region" not in filters:
         filters["region"] = TOWN_REGION[town]
         parsed.notices.append(f"읍면 단위 데이터가 없어 {town} 대신 {filters['region']} 전체로 분석했습니다.")
+    if filters.get("visitor") == "도민" and parsed.intent in ("weekday", "timing"):
+        parsed.notices.append("요일별 데이터에는 도민과 관광객 구분이 없어 요일 비중은 지역 전체 소비 기준입니다.")
     if "외국인" in q:
         parsed.notices.append("외국인 관광객 데이터가 없어 내국인 관광객 기준으로 분석했습니다.")
     if re.search(r"시간대|오전|오후|저녁|점심", q):
@@ -143,10 +147,10 @@ def parse_question(question: str, answers: dict[str, str] | None, store: DataSto
     if re.search(r"\d+\s*~\s*\d+\s*월|여름|겨울|봄철|가을", q):
         parsed.notices.append("특정 계절만 따로 집계하지 않고 최근 기간 전체의 월별 흐름으로 분석했습니다.")
 
-    all_region = bool(re.search(r"전\s*지역|전체|전역", q)) or bool(answers)
+    all_region = bool(re.search(r"전\s*지역|전체|전역", q)) or bool(answers) or compare_regions
     has_target = any(k in filters for k in ("region", "theme", "industry", "age")) or parsed.district or all_region
     parsed.ambiguous = len(q) < 6 or (not has_target and parsed.intent != "growth")
-    parsed.dimension = _detect_dimension(q, filters)
+    parsed.dimension = "시군구" if compare_regions else _detect_dimension(q, filters)
     return parsed
 
 
@@ -174,10 +178,15 @@ def _execute(parsed: Parsed, box: ToolBox) -> list[Result]:
         add("weekday_pattern", {"district": parsed.district, "region": region, "months": months})
         add("analyze_trend", {"filters": filters, "months": months})
     elif parsed.intent == "growth":
-        dimension = "업종" if "theme" in filters else "테마"
-        first = add("rank_segments", {"dimension": dimension, "filters": filters, "metric": "growth", "months": months})
-        key = "industry" if dimension == "업종" else "theme"
-        add("analyze_trend", {"filters": {**filters, key: first["facts"]["top_name"]}, "months": months})
+        target = filters
+        if "industry" not in filters:
+            dimension = "업종" if "theme" in filters else "테마"
+            ranking = run("rank_segments", {"dimension": dimension, "filters": filters, "metric": "growth", "months": months})
+            if len(ranking["rows"]) > 1:
+                ids.append(ranking["result_id"])
+                key = "industry" if dimension == "업종" else "theme"
+                target = {**filters, key: ranking["facts"]["top_name"]}
+        add("analyze_trend", {"filters": target, "months": months})
     elif parsed.intent == "rank":
         if parsed.dimension:
             add("rank_segments", {"dimension": parsed.dimension, "filters": filters, "months": months})
@@ -230,11 +239,14 @@ def narrate(parsed: Parsed, results: list[Result]) -> tuple[str, str, list[dict[
     if trend:
         f = trend.facts
         tops = ", ".join(month_label(m) for m in f["top3_months"])
+        top_text = f" 상위 3개월({tops})의 비중은 {f['top3_share']}%입니다." if len(trend.rows) > 3 else ""
         if parsed.intent == "timing":
             title = f"{scope} 소비 분석 및 프로모션 적기 제안"
         sentences.insert(0 if parsed.intent != "growth" else 1,
-                         f"{scope} 소비는 **{month_label(f['peak_month'])}**에 가장 많아 분석 기간 이용금액의 **{f['peak_share']}%**를 차지합니다. "
-                         f"상위 3개월({tops})의 비중은 {f['top3_share']}%입니다.")
+                         f"{scope} 소비는 **{month_label(f['peak_month'])}**에 가장 많아 분석 기간 이용금액의 **{f['peak_share']}%**를 차지합니다.{top_text}")
+        if parsed.intent == "growth" and not rank:
+            title = f"{scope} 전년 대비 소비 증감 분석"
+            sentences.insert(0, f"{scope} 소비의 전년 동기 대비 증감률은 **{signed(f['yoy_total'])}**입니다.")
         actions.append({"badge": "시기 전략", "title": f"{month_label(f['peak_month'])} 이전 사전 홍보",
                         "desc": f"소비가 가장 많은 달의 이용금액은 {money(f['peak_amount'])}입니다. 해당 시기가 시작되기 전에 쿠폰과 예약 홍보를 준비하세요."})
         actions.append({"badge": "상품 전략", "title": f"1인당 {won(f['per_user'])} 기준 상품 구성",
@@ -244,13 +256,14 @@ def narrate(parsed: Parsed, results: list[Result]) -> tuple[str, str, list[dict[
     if weekday:
         f = weekday.facts
         days = "·".join(f["top_days"])
+        base = parsed.district or parsed.filters.get("region") or "제주"
         if parsed.intent == "weekday":
-            title = f"{parsed.district or parsed.filters.get('region') or '제주 전체'} 요일별 소비 패턴 분석"
-        sentence = (f"요일별로는 **{days}요일**에 주간 소비의 **{f['top_days_share']}%**가 집중되고, "
+            title = f"{base} 요일별 소비 패턴 분석"
+        sentence = (f"{base} 전체 소비 기준으로 **{days}요일**에 주간 소비의 **{f['top_days_share']}%**가 집중되고, "
                     f"주말(토·일) 비중은 {f['weekend_share']}%, 평일(월~금) 비중은 {f['weekday_share']}%입니다.")
         sentences.insert(0 if parsed.intent == "weekday" else len(sentences), sentence)
         actions.insert(1, {"badge": "요일 전략", "title": f"{days}요일 집중 운영",
-                           "desc": f"{days}요일의 소비 비중이 {f['top_days_share']}%로 가장 높습니다. 이 요일에 인력과 재고를 우선 배치하고, {f['low_day']}요일에는 할인 혜택을 검토하세요."})
+                           "desc": f"{base} 전체 소비 기준으로 {days}요일의 비중이 {f['top_days_share']}%로 가장 높습니다. 이 요일에 인력과 재고를 우선 배치하고, {f['low_day']}요일에는 할인 혜택을 검토하세요."})
     return title, " ".join(sentences), actions[:4]
 
 

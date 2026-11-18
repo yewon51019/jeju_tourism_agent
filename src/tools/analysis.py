@@ -143,23 +143,32 @@ class Analyzer:
         total = float(current["이용금액"].sum())
         if not total:
             raise AnalysisError("선택한 조건에 해당하는 데이터가 없습니다.")
-        has_previous = set(previous_window) <= set(self.store.months)
+        monthly = frame.groupby([dimension, "기준연월"])["이용금액"].sum().to_dict()
+
+        def comparable(name: Any) -> bool:
+            """이용 실적이 있는 모든 달에 전년 같은 달 실적이 있어야 증감률을 비교할 수 있다."""
+            active = [m for m in window if monthly.get((name, m), 0) > 0]
+            return bool(active) and all(monthly.get((name, shift_year(m)), 0) > 0 for m in active)
+
         rows = [{
             "name": str(name), "amount": float(row["이용금액"]), "users": float(row["이용자수"]),
             "share": share(float(row["이용금액"]), total),
             "per_user": round(row["이용금액"] / row["이용자수"]) if row["이용자수"] else 0,
-            "yoy": growth(float(row["이용금액"]), float(previous.get(name, 0))) if has_previous else None,
+            "yoy": growth(float(row["이용금액"]), float(previous.get(name, 0))) if comparable(name) else None,
         } for name, row in current.iterrows()]
+        compared = [r for r in rows if r["yoy"] is not None]
         if metric == "growth":
-            if not has_previous:
+            if not compared:
                 raise AnalysisError("전년 동기 데이터가 없어 증가율 순위를 계산할 수 없습니다.")
             rows.sort(key=lambda r: (r["yoy"] is not None, r["yoy"] or 0), reverse=True)
+            first, last = rows[0], min(compared, key=lambda r: r["yoy"])
         else:
             rows.sort(key=lambda r: r["amount"], reverse=True)
+            first, last = rows[0], rows[-1]
         facts = {"dimension": dimension, "metric": metric, "total_amount": total,
-                 "total_users": float(current["이용자수"].sum()), "top_name": rows[0]["name"],
-                 "top_share": rows[0]["share"], "top_yoy": rows[0]["yoy"], "bottom_name": rows[-1]["name"],
-                 "bottom_yoy": rows[-1]["yoy"]}
+                 "total_users": float(current["이용자수"].sum()), "top_name": first["name"],
+                 "top_share": first["share"], "top_yoy": first["yoy"], "bottom_name": last["name"],
+                 "bottom_yoy": last["yoy"]}
         spec = {"dimension": dimension, "filters": cleaned, "metric": metric, "months": int(months)}
         return self._save("rank", spec, rows, facts)
 

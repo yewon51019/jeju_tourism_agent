@@ -11,7 +11,8 @@ from typing import Iterator
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -43,11 +44,16 @@ class ApiKeyRequest(BaseModel):
 
 def require_local(request: Request) -> None:
     """다른 웹사이트가 이 PC의 설정을 바꾸지 못하도록 로컬 화면의 요청만 허용한다."""
-    host = request.headers.get("host", "").rsplit(":", 1)[0]
+    host = request.headers.get("host", "")
     origin = request.headers.get("origin")
-    origin_host = origin.split("://")[-1].rsplit(":", 1)[0] if origin else host
-    if host not in LOCAL_HOSTS or origin_host not in LOCAL_HOSTS:
-        raise HTTPException(status_code=403, detail="이 PC의 화면에서만 설정을 변경할 수 있습니다.")
+    if host.rsplit(":", 1)[0] not in LOCAL_HOSTS or (origin is not None and origin.split("://")[-1] != host):
+        raise HTTPException(status_code=403, detail="이 PC의 화면에서만 사용할 수 있습니다.")
+
+
+@app.exception_handler(RequestValidationError)
+async def invalid_request(_: Request, __: RequestValidationError) -> JSONResponse:
+    """입력값이 응답에 되돌아가지 않도록 일반 오류 문구만 보낸다."""
+    return JSONResponse(status_code=422, content={"detail": "요청 형식이 올바르지 않습니다."})
 
 
 def get_store() -> DataStore:
@@ -93,7 +99,7 @@ def remove_api_key() -> dict:
     return delete_key()
 
 
-@app.post("/api/analyze")
+@app.post("/api/analyze", dependencies=[Depends(require_local)])
 def analyze(request: AnalyzeRequest) -> StreamingResponse:
     question = request.question.strip()
     if not question:

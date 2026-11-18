@@ -142,6 +142,8 @@ def preprocess_monthly(frame: pd.DataFrame, quality: list[str]) -> pd.DataFrame:
     if invalid:
         quality.append(f"월간 카드: 기준연월 형식 오류 {invalid:,}행 제외")
     frame = frame.loc[parsed.notna()].copy()
+    if frame.empty:
+        raise DataError("월간 카드 파일에 올바른 기준연월이 없습니다.")
     frame["기준연월"] = parsed.dropna().dt.strftime("%Y-%m").astype(str).to_numpy()
     frame["연령대"] = frame["연령대"].map(_normalize_age).astype(str)
     frame["성별"] = frame["성별"].map(_normalize_gender).astype(str)
@@ -158,6 +160,8 @@ def preprocess_weekday(frame: pd.DataFrame, quality: list[str]) -> pd.DataFrame:
     if invalid:
         quality.append(f"요일별 카드: 날짜 형식 오류 {invalid:,}행 제외")
     frame = frame.loc[parsed.notna()].copy()
+    if frame.empty:
+        raise DataError("요일별 카드 파일에 올바른 날짜가 없습니다.")
     dates = parsed.dropna()
     frame["날짜"] = dates.dt.strftime("%Y-%m-%d").astype(str).to_numpy()
     frame["기준연월"] = dates.dt.strftime("%Y-%m").astype(str).to_numpy()
