@@ -4,6 +4,7 @@
 node_modules/
 __pycache__/
 .pytest_cache/
+.test-runs/
 *.pyc
 data/raw/*.csv
 data/processed/*.csv

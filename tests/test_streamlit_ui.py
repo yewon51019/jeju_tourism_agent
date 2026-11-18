@@ -10,6 +10,7 @@ from src.jeju_agent import settings
 def test_api_form_save_switches_mode_without_exposing_key(monkeypatch, tmp_path):
     path = tmp_path / '.env'
     original_save = settings.save_settings
+    original_load = settings.load_settings
     monkeypatch.setattr(settings, 'load_settings', lambda: {'api_key': '', 'model': 'claude-opus-5-5'})
     monkeypatch.setattr(settings, 'save_settings', lambda key, model: original_save(key, model, path))
     app = AppTest.from_file(str(Path(__file__).parents[1] / 'app.py')).run(timeout=30)
@@ -21,7 +22,7 @@ def test_api_form_save_switches_mode_without_exposing_key(monkeypatch, tmp_path)
     assert app.session_state['api_settings']['api_key'] == 'synthetic-ui-test-token'
     assert app.session_state['execution_mode'] == 'Claude Agent'
     assert next(widget for widget in app.text_input if widget.label == 'Anthropic API Key').value == ''
-    assert settings.load_settings(path)['api_key'] == 'synthetic-ui-test-token'
+    assert original_load(path)['api_key'] == 'synthetic-ui-test-token'
     assert all('synthetic-ui-test-token' not in element.value for element in app.markdown)
 
 

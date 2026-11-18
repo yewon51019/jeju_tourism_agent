@@ -41,7 +41,11 @@ def show_api_settings() -> dict[str, str]:
         if settings["api_key"]:
             st.success("Key 저장됨 · 실제 API 인증은 아직 확인하지 않았습니다.")
         with st.form("api_settings_form", clear_on_submit=True):
-            entered_key = st.text_input("Anthropic API Key", type="password", placeholder="새 Key 입력 · 기존 Key 유지 시 비워 두세요")
+            # 저장 직후 rerun에서도 이전 비밀 입력값이 남지 않도록 새 위젯을 사용합니다.
+            input_revision = st.session_state.get("api_key_input_revision", 0)
+            entered_key = st.text_input("Anthropic API Key", type="password",
+                                        key=f"api_key_input_{input_revision}",
+                                        placeholder="새 Key 입력 · 기존 Key 유지 시 비워 두세요")
             model = st.text_input("모델 ID", value=settings["model"])
             remember = st.checkbox("다음 실행에도 사용하도록 이 PC에 저장", value=True)
             submitted = st.form_submit_button("저장하고 Claude 모드로 전환", type="primary")
@@ -52,6 +56,7 @@ def show_api_settings() -> dict[str, str]:
                     save_settings(api_key, model)
                 st.session_state.api_settings = {"api_key": api_key, "model": model}
                 st.session_state.execution_mode = "Claude Agent"
+                st.session_state.api_key_input_revision = input_revision + 1
                 st.rerun()
             except ValueError as error:
                 st.error(str(error))
@@ -62,6 +67,7 @@ def show_api_settings() -> dict[str, str]:
                 clear_api_key()
                 st.session_state.api_settings = {"api_key": "", "model": settings["model"]}
                 st.session_state.execution_mode = "오프라인 데모"
+                st.session_state.api_key_input_revision = input_revision + 1
                 st.rerun()
             except OSError:
                 st.error("설정 파일을 변경하지 못했습니다. 쓰기 권한을 확인하세요.")
