@@ -7,6 +7,7 @@ __pycache__/
 .test-runs/
 *.pyc
 data/raw/*.csv
+data/exports/
 data/processed/*.csv
 outputs/
 *.log

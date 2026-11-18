@@ -27,7 +27,8 @@ DIST = ROOT / "dist"
 SKIP_REQUIREMENTS = ("streamlit", "matplotlib", "anthropic")
 FILES = [".env.example", "run.bat", "download_data.bat", "pytest.ini", "docs/user_manual.md", "docs/data_usage_spec.md",
          "docs/disclosure.md", "scripts/fetch_hub_data.py", "scripts/evaluate.py", "tests/test_analysis.py",
-         "tests/test_web_agent.py", "tests/test_rank_coverage.py", "tests/test_hub_fetch.py"]
+         "tests/test_web_agent.py", "tests/test_rank_coverage.py", "tests/test_hub_fetch.py",
+         "tests/test_hub_export.py", "docs/csv-export.md"]
 TREES = {"src": "*.py", "static": "*"}
 EXCLUDED_DIRS = {"jeju_agent", "__pycache__"}
 SECRET = re.compile(r"sk-ant-[A-Za-z0-9_\-]{20,}|ghp_[A-Za-z0-9]{30,}|AIza[0-9A-Za-z_\-]{30,}")
@@ -62,6 +63,7 @@ def result_report(store, evaluation: str) -> str:
     notice = ("> 이 문서의 실행 결과는 **합성 샘플 데이터**로 계산했으며 실제 제주 관광 통계가 아닙니다.\n\n" if store.is_sample
               else f"> 이 문서의 실행 결과는 제주데이터허브 데이터({store.period})로 계산했습니다.\n\n")
     lines = ["# 결과 설명자료", "", notice,
+             "원본 CSV 취득·검증 내역은 [수집 결과](csv-export.md)에 별도 기록합니다. 원본 확보와 아래 분석 사례의 실행 데이터는 구분합니다.", "",
              "## 1. 문제 정의", "",
              "제주 관광 소비 데이터는 공개되어 있지만, 분석 경험이 없는 소상공인과 센터 이용자는 데이터를 고르고 집계해 의사결정에 활용하기 어렵습니다. "
              "본 Agent는 자연어 질문만으로 소비 시기, 고객층, 지역, 업종을 분석하고 근거가 있는 보고서를 제공합니다.", "",

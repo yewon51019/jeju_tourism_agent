@@ -25,7 +25,7 @@ test('기획서 HTML은 표지와 7장, 실제 표 구조를 포함한다', () =
 });
 
 test('기획서는 목표와 실측 및 실제 API 미완료 범위를 구분한다', () => {
-  for (const expected of ['HTTP 200', 'HTTP 403', '5행', '335', '목표이며', '실제 Gemini', '15페이지']) {
+  for (const expected of ['HTTP 200', 'HTTP 403', '19,573', '1,050', '앱 분석용 가공', '목표이며', '실제 Gemini', '15페이지']) {
     assert.ok(proposal.includes(expected), `Missing disclosure: ${expected}`);
   }
 });

@@ -88,6 +88,7 @@ def to_markdown(r: dict[str, object]) -> str:
     total, answerable = r["total"], r["answerable"]
     rate = lambda n, d: f"{n}/{d} ({n / d * 100:.1f}%)"
     lines = ["# 평가 결과", "",
+             "원본 CSV 취득·검증은 [수집 결과](csv-export.md)에 별도 기록합니다. 아래 수치의 데이터 출처는 다음 항목을 따르며 CSV 취득 성공을 모델 평가 성공으로 간주하지 않습니다.", "",
              f"- 데이터: {r['source']} ({r['period']})",
              "- 측정 대상: 규칙 기반 분석 경로. Gemini API 경로는 이 평가에 포함되지 않습니다.",
              "- 평가 질문은 규칙을 만든 참가자가 직접 작성했으므로 처음 보는 질문에서는 정확도가 더 낮을 수 있습니다.", "",

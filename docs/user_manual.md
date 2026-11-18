@@ -62,6 +62,14 @@ API 키는 프로젝트 폴더의 `.env` 파일 한 곳에만 입력합니다. �
 
 ### 2.3 API 호출 코드 위치
 
+원본 CSV를 값 변환 없이 별도로 보존하려면 다음 명령을 사용합니다. 이 명령은 앱을 실행하지 않으며 원본을 앱용 CSV로 전환하지도 않습니다.
+
+```powershell
+.venv\Scripts\python.exe -m src.hub_export --start 200001 --end 202611 --output data/exports/jeju_20261119
+```
+
+기존 폴더는 덮어쓰지 않으므로 재실행 시 새 출력 폴더를 지정합니다. `monthly_597.csv`, `weekday_608.csv`, `receipt.json`이 생성됩니다. 엑셀에서는 UTF-8 CSV로 열 수 있습니다. 2026-11-19 결과는 월간 19,573행, 요일별 1,050행이며 두 파일 모두 관광객 구분을 보존합니다. 원본을 `card_monthly.csv` 등으로 이름만 바꾸지 마세요. 상세 형식·주의사항은 [원본 수집 결과](csv-export.md)에 있습니다.
+
 | 기능 | 파일 | 함수 |
 | --- | --- | --- |
 | Gemini API 클라이언트 생성 | `src/settings.py` | `create_client` |
@@ -70,6 +78,7 @@ API 키는 프로젝트 폴더의 `.env` 파일 한 곳에만 입력합니다. �
 | Gemini의 도구 호출과 분석 진행 | `src/agent.py` | `GeminiAgent._create`, `GeminiAgent.run` |
 | 보고서 형식과 수치 검증 | `src/agent.py`, `src/interpreter.py` | `_reject_report`, `ReportDraft` |
 | 제주데이터허브 Open API 호출 | `src/hub_api.py` | `fetch_all`, `download`, `ensure_hub_data` |
+| 명시적 원본 CSV 내보내기 | `src/hub_export.py` | `collect`, `save_csv`, `export` |
 | 프롬프트 | `src/prompts.py` | `INTERPRET_PROMPT`, `SYSTEM_PROMPT` |
 
 ## 3. 사용 방법
