@@ -1,4 +1,4 @@
-"""Claude에 공개하는 도구 정의와 실행기."""
+"""Gemini에 공개하는 도구 정의와 실행기."""
 from __future__ import annotations
 
 from typing import Any
@@ -25,18 +25,17 @@ TOOLS: list[dict[str, Any]] = [
     {
         "name": "list_datasets",
         "description": "사용 가능한 데이터, 조건 값, 데이터 기간을 조회한다. 분석을 시작할 때 먼저 호출한다.",
-        "input_schema": {"type": "object", "properties": {}, "additionalProperties": False},
     },
     {
         "name": "analyze_trend",
         "description": "조건별 월간 이용금액, 이용자수, 1인당 금액, 전년 동월 대비 증감률을 계산한다.",
-        "input_schema": {"type": "object", "properties": {"filters": _FILTERS, "months": _MONTHS},
+        "parameters_json_schema": {"type": "object", "properties": {"filters": _FILTERS, "months": _MONTHS},
                          "additionalProperties": False},
     },
     {
         "name": "rank_segments",
         "description": "시군구, 테마, 업종, 연령대, 성별의 이용금액 또는 전년 대비 증가율 순위를 계산한다.",
-        "input_schema": {
+        "parameters_json_schema": {
             "type": "object",
             "properties": {
                 "dimension": {"type": "string", "enum": ["시군구", "테마", "업종", "연령대", "성별"]},
@@ -49,7 +48,7 @@ TOOLS: list[dict[str, Any]] = [
     {
         "name": "weekday_pattern",
         "description": "지구 또는 시군구의 요일별 이용금액 비중을 계산한다. 업종과 고객층 구분은 제공되지 않는다.",
-        "input_schema": {
+        "parameters_json_schema": {
             "type": "object",
             "properties": {"district": {"type": "string", "description": "지구명"},
                            "region": {"type": "string", "description": "시군구"}, "months": _MONTHS},
@@ -59,13 +58,13 @@ TOOLS: list[dict[str, Any]] = [
     {
         "name": "verify_result",
         "description": "분석 결과를 원본 행에서 다시 합산해 대조하고 조건 일치, 비중 합계, 표본 크기를 점검한다.",
-        "input_schema": {"type": "object", "properties": {"result_id": {"type": "string"}},
+        "parameters_json_schema": {"type": "object", "properties": {"result_id": {"type": "string"}},
                          "required": ["result_id"], "additionalProperties": False},
     },
     {
         "name": "ask_user",
         "description": "조건이 모호할 때 사용자에게 선택지를 제시한다. 호출하면 사용자의 답을 받을 때까지 분석을 멈춘다.",
-        "input_schema": {
+        "parameters_json_schema": {
             "type": "object",
             "properties": {
                 "question": {"type": "string"},
@@ -86,7 +85,7 @@ TOOLS: list[dict[str, Any]] = [
     {
         "name": "build_report",
         "description": "검증을 통과한 결과로 보고서를 제출한다. 도구 결과에 없는 수치가 있으면 거부된다.",
-        "input_schema": {
+        "parameters_json_schema": {
             "type": "object",
             "properties": {
                 "title": {"type": "string"},

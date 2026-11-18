@@ -1,7 +1,7 @@
 """평가 질문 30개로 규칙 기반 경로의 조건 해석과 보고서 검증을 측정한다.
 
 실행: python scripts/evaluate.py
-Claude API는 호출하지 않으므로 이 결과는 규칙 기반 분석 경로의 성능이다.
+Gemini API는 호출하지 않으므로 이 결과는 규칙 기반 분석 경로의 성능이다.
 """
 from __future__ import annotations
 
@@ -89,7 +89,7 @@ def to_markdown(r: dict[str, object]) -> str:
     rate = lambda n, d: f"{n}/{d} ({n / d * 100:.1f}%)"
     lines = ["# 평가 결과", "",
              f"- 데이터: {r['source']} ({r['period']})",
-             "- 측정 대상: 규칙 기반 분석 경로. Claude API 경로는 이 평가에 포함되지 않습니다.",
+             "- 측정 대상: 규칙 기반 분석 경로. Gemini API 경로는 이 평가에 포함되지 않습니다.",
              "- 평가 질문은 규칙을 만든 참가자가 직접 작성했으므로 처음 보는 질문에서는 정확도가 더 낮을 수 있습니다.", "",
              "| 지표 | 결과 | 기획서 목표 |", "| --- | --- | --- |",
              f"| 질문 조건 추출 정확도 | {rate(r['condition'], total)} | 90% 이상 |",

@@ -16,11 +16,11 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from .agent import DEFAULT_MODEL, llm_available, run_agent
+from .agent import llm_available, run_agent
 from .data_pipeline import DataError, DataStore, load_store
 from .events import error
 from .hub_api import ensure_hub_data
-from .settings import KeyRejected, delete_key, save_key
+from .settings import DEFAULT_MODEL, MODEL_NAME, KeyRejected, delete_key, save_key
 
 ROOT = Path(__file__).resolve().parent.parent
 LOCAL_HOSTS = {"127.0.0.1", "localhost"}
@@ -83,7 +83,7 @@ def status() -> dict:
     except DataError as exc:
         return {"ready": False, "error": str(exc)}
     return {
-        "ready": True, "llm": llm_available(), "model": os.getenv("ANTHROPIC_MODEL", DEFAULT_MODEL),
+        "ready": True, "llm": llm_available(), "model": os.getenv(MODEL_NAME) or DEFAULT_MODEL,
         "source": store.source, "period": store.period, "isSample": store.is_sample, "quality": store.quality,
         "dataNotice": _data_notice,
     }
@@ -92,7 +92,7 @@ def status() -> dict:
 @app.post("/api/settings/api-key", dependencies=[Depends(require_local)])
 def store_api_key(request: ApiKeyRequest) -> dict:
     try:
-        return save_key(request.api_key, os.getenv("ANTHROPIC_MODEL", DEFAULT_MODEL))
+        return save_key(request.api_key, os.getenv(MODEL_NAME) or DEFAULT_MODEL)
     except KeyRejected as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

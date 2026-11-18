@@ -4,9 +4,9 @@
 
 | 모델 | 제공사 | 활용 범위 |
 | --- | --- | --- |
-| Claude Opus 5.5 (`claude-opus-5-5`) | Anthropic | 질문 해석, 분석 계획, 도구 선택, 결과 해석, 보고서 문장 작성 |
+| Gemini 3.5 Flash-Lite (`gemini-3.5-flash-lite`) | Google | 질문 해석, 분석 계획, 도구 선택, 결과 해석, 보고서 문장 작성 |
 
-수치 계산과 검증은 AI가 아니라 Python 코드가 수행합니다.
+수치 계산과 검증은 AI가 아니라 Python 코드가 수행합니다. Gemini API 무료 등급에는 사용자의 질문과 집계된 분석 결과가 전송되며, 전송 내용은 Google 제품 개선에 활용될 수 있습니다.
 
 ## 2. 개발 과정에서 사용한 AI 도구
 
@@ -20,7 +20,7 @@
 
 | 서비스 | 제공처 | 용도 |
 | --- | --- | --- |
-| Claude API | Anthropic | Agent의 LLM 호출 |
+| Gemini API (무료 등급) | Google | Agent의 LLM 호출 |
 | 제주데이터허브 Open API | 제주데이터허브 | 필수 데이터 수집 |
 
 ## 4. 외부 데이터
@@ -31,7 +31,8 @@
 
 | 이름 | 버전 | 라이선스 | 용도 |
 | --- | --- | --- | --- |
-| anthropic | 2.10.0 | Apache-2.0 | Claude API 연동 |
+| google-genai | 3.6.1 | Apache-2.0 | Gemini API 연동 |
+| HTTPX2 | 2.16.2 | BSD-3-Clause | Gemini SDK의 HTTP 통신 |
 | FastAPI | 0.164.0 | MIT | 웹 API 서버 |
 | Uvicorn | 0.54.0 | BSD-3-Clause | 웹 서버 실행 |
 | pandas | 3.1.1 | BSD-3-Clause | 데이터 처리 |

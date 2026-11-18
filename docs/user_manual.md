@@ -7,7 +7,7 @@
 | 운영체제 | Windows 10 이상 |
 | Python | 3.12 이상 (개발·테스트 환경 3.14) |
 | 센터 PC 사양 | Intel Core i7-8700, RAM 32GB. GPU는 사용하지 않음 |
-| 인터넷 | 패키지 설치, Claude API, 데이터 다운로드에 필요 |
+| 인터넷 | 패키지 설치, Gemini API, 데이터 다운로드에 필요 |
 
 1. ZIP을 `C:\jeju_tourism_agent`처럼 경로가 짧은 폴더에 풀고 `run.bat`을 더블클릭합니다.
 2. 브라우저에서 `http://127.0.0.1:8501`이 열립니다. 열리지 않으면 주소를 직접 입력합니다.
@@ -19,25 +19,29 @@ API 키는 프로젝트 폴더의 `.env` 파일 한 곳에만 입력합니다. �
 
 | 키 | 입력할 파일 | 입력할 줄 | 키를 읽는 코드 |
 | --- | --- | --- | --- |
-| Claude API 키 | `.env` | `ANTHROPIC_API_KEY=발급받은 키` | `src/agent.py`의 `ClaudeAgent` |
+| Gemini API 키 | `.env` | `GEMINI_API_KEY=발급받은 키` | `src/agent.py`의 `GeminiAgent` |
 | 제주데이터허브 프로젝트 키 | `.env` | `JEJU_HUB_PROJECT_KEY=발급받은 키` | `src/hub_api.py`의 `ensure_hub_data` |
 
-### 2.1 Claude API 키 (외부 AI API)
+### 2.1 Gemini API 키 (외부 AI API, 무료 등급)
 
 평가 시에는 `EVALUATION_KEY.md`의 평가용 키를 사용합니다. 직접 발급하는 순서는 다음과 같습니다.
 
-1. [Claude Console](https://platform.claude.com)에 가입하고 로그인합니다.
-2. 결제 수단과 크레딧을 등록하고, 사용 한도를 설정합니다.
-3. `API Keys` 메뉴에서 새 키를 만들고 `sk-ant-`로 시작하는 값을 복사합니다.
+1. [Google AI Studio의 API 키 페이지](https://aistudio.google.com/apikey)에 Google 계정으로 로그인하고 약관에 동의합니다. 만 18세 이상만 사용할 수 있습니다.
+2. `Create API key`를 눌러 키를 만듭니다. 무료로 사용하려면 결제를 연결하지 않은 프로젝트를 선택합니다.
+3. 만들어진 키를 복사합니다.
 
 키는 다음 두 방법 중 하나로 입력합니다.
 
 - **화면 입력:** 화면 오른쪽 위 `API 키 입력`을 누르고 키를 붙여넣은 뒤 `확인 후 저장`을 누릅니다. 키가 `.env`에 자동으로 저장됩니다.
-- **파일 입력:** `.env`를 메모장으로 열어 `ANTHROPIC_API_KEY=` 뒤에 키를 붙여넣고 저장한 다음 `run.bat`을 다시 실행합니다.
+- **파일 입력:** `.env`를 메모장으로 열어 `GEMINI_API_KEY=` 뒤에 키를 붙여넣고 저장한 다음 `run.bat`을 다시 실행합니다.
 
-상단 표시가 `Claude 사용`으로 바뀌면 키가 설정된 것입니다. 예시 질문을 실행한 뒤 보고서의 실행 모드가 `Claude Agent`로 표시되면 Claude API 호출이 정상입니다. `규칙 기반 분석`으로 표시되면 키와 사용 한도를 확인합니다. 저장된 키는 화면에 다시 표시되지 않습니다.
+상단 표시가 `Gemini 사용`으로 바뀌면 키가 설정된 것입니다. 예시 질문을 실행한 뒤 보고서의 실행 모드가 `Gemini Agent`로 표시되면 Gemini API 호출이 정상입니다. `규칙 기반 분석`으로 표시되면 키와 사용 한도를 확인합니다. 저장된 키는 화면에 다시 표시되지 않습니다.
 
-- 평가용 키는 참가자가 준비했으며 사용 한도가 설정되어 있습니다. 평가 중 발생하는 API 비용은 참가자가 부담합니다.
+- 기본 모델은 `gemini-3.5-flash-lite`이며 `.env`의 `GEMINI_MODEL`에서 바꿀 수 있습니다.
+- 평가용 키는 참가자가 준비한 무료 등급 키이며 결제가 연결되어 있지 않아 평가 중 비용이 발생하지 않습니다.
+- 무료 등급의 분당·일일 한도는 프로젝트와 모델별로 다르며 [AI Studio 사용량 페이지](https://aistudio.google.com/rate-limit)에서 확인합니다. 일일 한도는 미국 태평양 시간 자정에 초기화됩니다.
+- 질문 1건을 분석할 때 Gemini API를 여러 번 호출합니다. 한도를 넘으면 잠시 재시도한 뒤 규칙 기반 분석으로 전환합니다.
+- 무료 등급에서는 입력 내용과 응답이 Google 제품 개선에 활용되고 사람이 검토할 수 있습니다. 질문에 개인정보, 민감정보, 기밀정보를 입력하지 않습니다.
 - 평가용 키는 평가 기간 종료 후 삭제·폐기합니다.
 
 ### 2.2 제주데이터허브 프로젝트 키 (데이터 API)
@@ -60,9 +64,10 @@ API 키는 프로젝트 폴더의 `.env` 파일 한 곳에만 입력합니다. �
 
 | 기능 | 파일 | 함수 |
 | --- | --- | --- |
-| 사용자 문장을 Claude에 보내 JSON 형식으로 해석 | `src/agent.py` | `ClaudeAgent._interpret` |
+| Gemini API 클라이언트 생성 | `src/settings.py` | `create_client` |
+| 사용자 문장을 Gemini에 보내 JSON 형식으로 해석 | `src/agent.py` | `GeminiAgent._interpret` |
 | 응답 JSON 형식 정의와 검증 | `src/interpreter.py` | `interpretation_schema`, `parse_interpretation` |
-| Claude의 도구 호출과 분석 진행 | `src/agent.py` | `ClaudeAgent._create`, `ClaudeAgent.run` |
+| Gemini의 도구 호출과 분석 진행 | `src/agent.py` | `GeminiAgent._create`, `GeminiAgent.run` |
 | 보고서 형식과 수치 검증 | `src/agent.py`, `src/interpreter.py` | `_reject_report`, `ReportDraft` |
 | 제주데이터허브 Open API 호출 | `src/hub_api.py` | `fetch_all`, `download`, `ensure_hub_data` |
 | 프롬프트 | `src/prompts.py` | `INTERPRET_PROMPT`, `SYSTEM_PROMPT` |
@@ -91,7 +96,8 @@ API 키는 프로젝트 폴더의 `.env` 파일 한 곳에만 입력합니다. �
 | 폴더 경로가 너무 길다는 안내 | Windows 경로 길이 제한 | `C:\jeju_tourism_agent`처럼 짧은 경로로 이동 |
 | 패키지 설치 실패 | 인터넷 연결 문제 | 연결 확인 후 다시 실행 |
 | API 키 형식 또는 인증 오류 | 잘못되었거나 폐기된 키 | 키를 다시 확인 |
-| 규칙 기반 분석으로 전환됨 | 키 없음, 사용 한도 초과, API 장애 | 키와 인터넷 연결 확인 |
+| 규칙 기반 분석으로 전환됨 | 키 없음, API 장애 | 키와 인터넷 연결 확인 |
+| Gemini 무료 사용량 한도에 도달했다는 안내 | 무료 등급의 분당 또는 일일 한도 초과 | 1분 뒤 다시 실행하고, 계속되면 한도 초기화 후 실행 |
 | 프로젝트 키를 확인하라는 안내 | 키 오류 또는 프로젝트 담기 누락 | 안내에 표시된 데이터 번호(597번, 608번)를 2.2절의 3~4번에 따라 다시 확인 |
 | 합성 샘플로 실행된다는 안내 | 프로젝트 키 미입력 또는 다운로드 실패 | `.env`의 `JEJU_HUB_PROJECT_KEY` 확인 후 `run.bat` 다시 실행 |
 | 일일 호출 한도 초과 | 데이터별 일일 1,000회 초과 | 다음 날 다시 실행 |

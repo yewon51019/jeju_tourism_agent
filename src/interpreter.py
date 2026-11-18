@@ -1,4 +1,4 @@
-"""사용자 질문을 Claude가 돌려줄 JSON 형식으로 정의하고, 받은 결과를 검증한다."""
+"""사용자 질문을 Gemini가 돌려줄 JSON 형식으로 정의하고, 받은 결과를 검증한다."""
 from __future__ import annotations
 
 from typing import Any, Literal
@@ -15,7 +15,7 @@ CONDITION_COLUMNS = {"region": "시군구", "theme": "테마", "industry": "업�
 
 
 class Interpretation(BaseModel):
-    """Claude가 질문을 해석해 돌려주는 결과."""
+    """Gemini가 질문을 해석해 돌려주는 결과."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -43,7 +43,7 @@ class ReportAction(BaseModel):
 
 
 class ReportDraft(BaseModel):
-    """Claude가 build_report 도구로 제출하는 보고서 형식."""
+    """Gemini가 build_report 도구로 제출하는 보고서 형식."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -59,7 +59,7 @@ def _nullable(values: list[str]) -> dict[str, Any]:
 
 
 def interpretation_schema(store: DataStore) -> dict[str, Any]:
-    """Claude 응답을 제한할 JSON Schema를 현재 데이터의 값으로 만든다."""
+    """Gemini 응답을 제한할 JSON Schema를 현재 데이터의 값으로 만든다."""
     properties: dict[str, Any] = {
         "analysis_type": {"type": "string", "enum": ANALYSIS_TYPES,
                           "description": "timing=시기 추천, trend=추세, growth=증가율, rank=순위·비교, weekday=요일 패턴"},

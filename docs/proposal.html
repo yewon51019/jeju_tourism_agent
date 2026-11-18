@@ -4,7 +4,7 @@
 table{width:100%;border-collapse:collapse;margin:14px 0;font-size:12px;line-height:1.55}th,td{border:1px solid #dbe5d9;padding:7px 9px;text-align:left;vertical-align:top}th{background:#f2f7ed}h1{font-size:24px;margin:20px 0 14px}h2{font-size:17px;margin:16px 0 10px}p,li{font-size:12px;line-height:1.65}p{margin:12px 0}li{margin:5px 0}tr{break-inside:avoid}</style></head><body><div class="toolbar">8개 인쇄 섹션 · 사용자 기획서 목차 1~7장 · 인쇄 시 A4 / 배율 100% / 머리글·바닥글 해제 · PDF 저장 후 실제 페이지 수 확인 <button onclick="window.print()">인쇄 / PDF 저장</button> <a href="../demo/index.html">데모 보기</a></div><section class="page"><div class="topline">JEJU SIGNAL / PROPOSAL</div><h1>제주 관광 소비 인사이트 Agent 기획서</h1>
 <p>JEJU SIGNAL · 작성일 2026년 11월 19일 · 참가자: 남예원</p>
 <p>이 문서는 사용자 제공 기획서의 1~7장 순서를 유지한 구현 반영본입니다. 원본은 user-proposal.md에 보존합니다. 표지와 7개 본문을 인쇄 섹션으로 구성했으며, 제출 전 실제 인쇄 페이지가 15페이지 이내인지 확인해야 합니다.</p>
-<p>현재 단계: 합성 데이터 데모와 분석·검증 코드가 있으며, 월간 데이터 API의 소량 응답을 확인했습니다. 실데이터 전체 수집·앱 반영, 실제 Claude 호출 평가, 센터 PC 검증은 완료했다고 주장하지 않습니다.</p>
+<p>현재 단계: 합성 데이터 데모와 분석·검증 코드가 있으며, 월간 데이터 API의 소량 응답을 확인했습니다. 실데이터 전체 수집·앱 반영, 실제 Gemini 호출 평가, 센터 PC 검증은 완료했다고 주장하지 않습니다.</p>
 <p>이번 API 확인은 임시 조회였고 확인 코드는 제거했습니다. 키는 로컬 설정에만 두며 기획서·공개 저장소에 포함하지 않습니다.</p><footer>구현 반영본 · 합성 데모 / 실데이터 소량 확인<span>1 / 8</span></footer></section>
 <section class="page"><div class="topline">JEJU SIGNAL / PROPOSAL</div><h1>1. 구현 목표</h1>
 <h2>1.1 해결하려는 문제와 분석 주제</h2>
@@ -12,20 +12,20 @@ table{width:100%;border-collapse:collapse;margin:14px 0;font-size:12px;line-heig
 <table><thead><tr><th scope="col">대상</th><th scope="col">활용 목표</th></tr></thead><tbody><tr><td>소상공인·예비 창업자</td><td>고객층·소비 집중 시기를 파악해 프로모션 가설 수립</td></tr><tr><td>센터 이용자</td><td>데이터 선택·집계·표 작성의 반복 작업 감소</td></tr><tr><td>행정·관광 실무자</td><td>출처와 조건을 확인할 수 있는 보고서 초안 작성</td></tr></tbody></table>
 <h2>1.2 AI 활용 목표와 평가 기준</h2>
 <p>LLM은 질문 해석·도구 선택·설명을 맡고, 수치 계산과 검증은 코드가 담당합니다. 질문 조건 해석·도구 선택 정확도 90% 이상, 수치 일치율·실행 로그 기록률 100%를 목표로 합니다.</p>
-<p>이 수치는 목표이며 실제 Claude 성능의 측정값이 아닙니다. 합성 데이터 규칙 경로의 자체 평가와 외부 LLM 평가는 별도로 기록합니다. 매출 예측·마케팅 인과효과·개별 점포 수익 보장은 범위에서 제외합니다.</p><footer>구현 반영본 · 합성 데모 / 실데이터 소량 확인<span>2 / 8</span></footer></section>
+<p>이 수치는 목표이며 실제 Gemini 성능의 측정값이 아닙니다. 합성 데이터 규칙 경로의 자체 평가와 외부 LLM 평가는 별도로 기록합니다. 매출 예측·마케팅 인과효과·개별 점포 수익 보장은 범위에서 제외합니다.</p><footer>구현 반영본 · 합성 데모 / 실데이터 소량 확인<span>2 / 8</span></footer></section>
 <section class="page"><div class="topline">JEJU SIGNAL / PROPOSAL</div><h1>2. 서비스 제안</h1>
 <h2>2.1 데이터 활용 및 이용 흐름</h2>
 <p>월간 소비 자료로 지역·업종·연령·성별을 분석하고, 요일별 지구 자료는 별도 맥락으로 제시합니다. 서로 다른 집계 단위를 합쳐 “30대 관광객의 선호 요일”처럼 자료에 없는 결과를 만들지 않습니다.</p>
 <ol><li>사용자가 질문을 입력하거나 예시 질문을 선택합니다.</li><li>부족하거나 모호한 조건을 확인합니다.</li><li>데이터·도구 선택과 분석 진행 상태를 표시합니다.</li><li>코드로 계산한 표·차트·근거·한계를 확인합니다.</li><li>보고서를 저장하고 실제 사업 판단은 사람이 수행합니다.</li></ol>
 <h2>2.2 핵심 기능과 편의성</h2>
-<table><thead><tr><th scope="col">기능</th><th scope="col">구현·표시 원칙</th></tr></thead><tbody><tr><td>자연어 질문·조건 확인</td><td>Claude 경로와 규칙 경로를 구분하여 표시</td></tr><tr><td>자동 분석</td><td>월별 추세·순위·비중·비교 가능한 전년 증감</td></tr><tr><td>결과 검증</td><td>원본 재계산·조건 일치·표본 경고</td></tr><tr><td>보고서·차트</td><td>합성 여부, 기간, 분석 조건, 한계를 함께 표기</td></tr><tr><td>판단 로그</td><td>도구 호출·검증 기록이며 모델 내부 사고 과정이 아님</td></tr></tbody></table>
+<table><thead><tr><th scope="col">기능</th><th scope="col">구현·표시 원칙</th></tr></thead><tbody><tr><td>자연어 질문·조건 확인</td><td>Gemini 경로와 규칙 경로를 구분하여 표시</td></tr><tr><td>자동 분석</td><td>월별 추세·순위·비중·비교 가능한 전년 증감</td></tr><tr><td>결과 검증</td><td>원본 재계산·조건 일치·표본 경고</td></tr><tr><td>보고서·차트</td><td>합성 여부, 기간, 분석 조건, 한계를 함께 표기</td></tr><tr><td>판단 로그</td><td>도구 호출·검증 기록이며 모델 내부 사고 과정이 아님</td></tr></tbody></table>
 <p>화면은 제공된 디자인 시안의 크림색 배경, 주황·초록 포인트, 둥근 카드 구조를 따릅니다. 예시 질문과 진행 단계로 처음 사용하는 사람의 부담을 줄입니다.</p><footer>구현 반영본 · 합성 데모 / 실데이터 소량 확인<span>3 / 8</span></footer></section>
 <section class="page"><div class="topline">JEJU SIGNAL / PROPOSAL</div><h1>3. Agent 개발 구성</h1>
 <h2>3.1 역할·목표·Workflow</h2>
 <p>참여자는 문제 정의·데이터 선정·Prompt와 도구·평가·최종 검수를 맡습니다. Agent는 조건 해석·데이터 선택·집계·검증·보고서를 수행하고, 사용자는 조건 보완과 최종 의사결정을 맡습니다.</p>
 <p>질문 → 조건 확인 → 데이터·분석 도구 선택 → 코드 계산 → 검증 → 차트·보고서. 조건이 불명확하면 되묻고, 계산 검증 실패를 성공으로 포장하지 않습니다.</p>
 <h2>3.2 모델 및 도구</h2>
-<p>설정 기본 모델 ID는 claude-opus-5-5입니다. 실제 모델 사용 권한·응답·비용은 평가용 키로 별도 검증해야 합니다. 로컬 테스트는 가짜 클라이언트로 통신 흐름을 검증하며 실제 Claude 호출 성공과 구분합니다.</p>
+<p>설정 기본 모델 ID는 gemini-3.5-flash-lite이며 Gemini API 무료 등급을 사용합니다. 실제 모델 응답과 무료 사용량 한도는 평가용 키로 별도 검증해야 합니다. 로컬 테스트는 가짜 클라이언트와 로컬 모의 서버로 통신 흐름을 검증하며 실제 Gemini 호출 성공과 구분합니다.</p>
 <table><thead><tr><th scope="col">공통 목적</th><th scope="col">주 웹 앱의 구성</th></tr></thead><tbody><tr><td>데이터·기간 확인</td><td>list_datasets</td></tr><tr><td>월별 추세·전년 비교</td><td>analyze_trend</td></tr><tr><td>지역·업종·고객층 순위</td><td>rank_segments</td></tr><tr><td>지구별 요일 패턴</td><td>weekday_pattern</td></tr><tr><td>독립 재계산</td><td>verify_result</td></tr><tr><td>추가 질문·보고서 제출</td><td>ask_user, build_report</td></tr></tbody></table>
 <p>원안의 query_spending·create_chart는 보조 Streamlit 엔진에 있으며, 주 웹 앱은 분석 도구와 Chart.js로 해당 역할을 나눕니다. 주 앱은 최대 14회 Agent 루프, 보조 엔진은 별도 재분석 제한을 사용하므로 원안의 “최대 2회 재분석”을 공통 구현 완료로 적지 않습니다.</p>
 <p>자율 범위는 허용된 분석 도구에 한정합니다. 원본 수정·개인 식별·외부 자동 게시·근거 없는 수치 생성은 수행하지 않습니다.</p><footer>구현 반영본 · 합성 데모 / 실데이터 소량 확인<span>4 / 8</span></footer></section>
@@ -39,10 +39,10 @@ table{width:100%;border-collapse:collapse;margin:14px 0;font-size:12px;line-heig
 <p>인증 성공은 재배포 허용이나 공모전 필수 데이터 인정의 최종 증빙이 아닙니다. 데이터별 이용조건·재배포 범위와 필수 데이터 목록은 제출 전 별도로 확인합니다.</p><footer>구현 반영본 · 합성 데모 / 실데이터 소량 확인<span>5 / 8</span></footer></section>
 <section class="page"><div class="topline">JEJU SIGNAL / PROPOSAL</div><h1>5. 개발·탑재 계획</h1>
 <h2>5.1 구현 범위와 기술 환경</h2>
-<table><thead><tr><th scope="col">구분</th><th scope="col">현재 코드 구성</th></tr></thead><tbody><tr><td>주 웹 앱</td><td>Python, FastAPI, HTML/CSS/JavaScript, Chart.js</td></tr><tr><td>보조 검증 앱</td><td>Streamlit, pandas, Matplotlib</td></tr><tr><td>데이터 계산</td><td>pandas·NumPy, 별도 원본 재계산 검증</td></tr><tr><td>AI 연동</td><td>Anthropic SDK, 서버 측 환경변수</td></tr><tr><td>테스트</td><td>pytest 및 Node.js 내장 테스트</td></tr><tr><td>정확한 의존성</td><td>requirements.txt 기준, 검증 런타임 Python 3.14</td></tr></tbody></table>
+<table><thead><tr><th scope="col">구분</th><th scope="col">현재 코드 구성</th></tr></thead><tbody><tr><td>주 웹 앱</td><td>Python, FastAPI, HTML/CSS/JavaScript, Chart.js</td></tr><tr><td>보조 검증 앱</td><td>Streamlit, pandas, Matplotlib</td></tr><tr><td>데이터 계산</td><td>pandas·NumPy, 별도 원본 재계산 검증</td></tr><tr><td>AI 연동</td><td>Google Gen AI SDK, 서버 측 환경변수</td></tr><tr><td>테스트</td><td>pytest 및 Node.js 내장 테스트</td></tr><tr><td>정확한 의존성</td><td>requirements.txt 기준, 검증 런타임 Python 3.14</td></tr></tbody></table>
 <p>원안의 Streamlit 화면 외에 디자인 시안을 반영한 FastAPI 웹 앱이 함께 개발되어 있습니다. 최종 ZIP의 실행 경로는 주 웹 앱으로 정리하며 보조 앱과 실행 절차를 혼동하지 않게 구분합니다.</p>
 <h2>5.2 UI 및 키 관리</h2>
-<p>질문 입력, 예시 질문, 진행 단계, 요약·차트·표·한계, 판단 로그로 구성합니다. Claude 키는 사용자가 웹에서 입력해 이 PC의 환경설정에 저장할 수 있습니다. 저장소는 암호화된 비밀 금고가 아니며 공용 서버 배포용이 아닙니다.</p>
+<p>질문 입력, 예시 질문, 진행 단계, 요약·차트·표·한계, 판단 로그로 구성합니다. Gemini 키는 사용자가 웹에서 입력해 이 PC의 환경설정에 저장할 수 있습니다. 저장소는 암호화된 비밀 금고가 아니며 공용 서버 배포용이 아닙니다.</p>
 <p>Streamlit 보조 앱은 키 저장 후 입력칸이 남는 문제를 수정했고, 가짜 키를 사용한 UI 회귀 검증을 통과했습니다.</p>
 <h2>5.3 센터 및 외부 의존성</h2>
 <p>센터 기준은 i7-8700, GTX 1060, RAM 32GB, VRAM 3GB이며 로컬 GPU 추론은 사용하지 않습니다. 해당 센터 PC에서의 직접 실행·성능 측정은 아직 없습니다.</p>
@@ -50,16 +50,16 @@ table{width:100%;border-collapse:collapse;margin:14px 0;font-size:12px;line-heig
 <section class="page"><div class="topline">JEJU SIGNAL / PROPOSAL</div><h1>6. 검증, 한계 및 센터 활용 방안</h1>
 <h2>6.1 실행한 검증</h2>
 <p>2026-11-19 로컬 작업 트리에서 외부 네트워크를 차단하고 로컬 내부 통신만 허용하여 Python 테스트 141건이 통과했습니다. 정적 데모의 JavaScript 계산 테스트 6건과 문서 목차·표·링크 검사 4건도 통과했습니다.</p>
-<p>검증 범위는 계산·조건·실패 처리·가짜 API 응답·키 설정·Streamlit UI입니다. 테스트 수는 모델 정확도가 아니며 실제 Claude API 평가, 원천 데이터 정확성, 센터 장비 성능을 증명하지 않습니다.</p>
+<p>검증 범위는 계산·조건·실패 처리·가짜 API 응답·키 설정·Streamlit UI입니다. 테스트 수는 모델 정확도가 아니며 실제 Gemini API 평가, 원천 데이터 정확성, 센터 장비 성능을 증명하지 않습니다.</p>
 <p>실제 데이터 API 확인은 월간 5행 조회 성공과 요일별 403까지입니다. 임시 조회 코드를 제거했으며 이 응답을 데모의 실제 분석 데이터로 바꾸지 않았습니다.</p>
 <h2>6.2 한계와 대응</h2>
-<table><thead><tr><th scope="col">한계</th><th scope="col">대응·보류</th></tr></thead><tbody><tr><td>과거 자료·전체 범위 미검증</td><td>조회 기준 기간 명시, 최신 경향 주장 금지</td></tr><tr><td>카드 소비만 관측</td><td>현금·전체 관광 매출 대표성 보장 금지</td></tr><tr><td>요일 자료의 고객층·업종 부재</td><td>월간 자료와 직접 결합 금지</td></tr><tr><td>규칙 기반 평가의 제한</td><td>Claude 실평가 및 미사용 질문 평가 별도</td></tr><tr><td>데이터·소스 동시 변경</td><td>문서 변경기록과 회귀 테스트 함께 갱신</td></tr></tbody></table>
+<table><thead><tr><th scope="col">한계</th><th scope="col">대응·보류</th></tr></thead><tbody><tr><td>과거 자료·전체 범위 미검증</td><td>조회 기준 기간 명시, 최신 경향 주장 금지</td></tr><tr><td>카드 소비만 관측</td><td>현금·전체 관광 매출 대표성 보장 금지</td></tr><tr><td>요일 자료의 고객층·업종 부재</td><td>월간 자료와 직접 결합 금지</td></tr><tr><td>규칙 기반 평가의 제한</td><td>Gemini 실평가 및 미사용 질문 평가 별도</td></tr><tr><td>데이터·소스 동시 변경</td><td>문서 변경기록과 회귀 테스트 함께 갱신</td></tr></tbody></table>
 <p>센터에서는 셀프 분석, 소상공인 상담, 근거 표 작성, 데이터 분석 입문 교육에 활용할 수 있습니다. 프로모션 제안은 참고용 가설이며 실행 효과를 보장하지 않습니다.</p><footer>구현 반영본 · 합성 데모 / 실데이터 소량 확인<span>7 / 8</span></footer></section>
 <section class="page"><div class="topline">JEJU SIGNAL / PROPOSAL</div><h1>7. 출처 및 AI·외부자원 사용 내역</h1>
 <h2>7.1 데이터·모델·외부 서비스</h2>
-<table><thead><tr><th scope="col">항목</th><th scope="col">출처·사용 범위</th></tr></thead><tbody><tr><td>지역·업종·성별·연령대 카드 데이터</td><td>제주데이터허브 597번, 사용자 제공 API 명세 및 소량 응답</td></tr><tr><td>요일별 카드 데이터</td><td>사용자 제공 명세, 실제 조회는 403으로 미확인</td></tr><tr><td>Claude</td><td>서비스 연동 코드·설정 존재, 이번 검증은 가짜 클라이언트 사용</td></tr><tr><td>Codex</td><td>코드·문서 작성 보조, 로컬 테스트 실행, 수정·증거 기록</td></tr><tr><td>Claude와 직접 상호 검토</td><td>연결 가능한 통신 경로를 확인하지 못해 완료로 기재하지 않음</td></tr></tbody></table>
+<table><thead><tr><th scope="col">항목</th><th scope="col">출처·사용 범위</th></tr></thead><tbody><tr><td>지역·업종·성별·연령대 카드 데이터</td><td>제주데이터허브 597번, 사용자 제공 API 명세 및 소량 응답</td></tr><tr><td>요일별 카드 데이터</td><td>사용자 제공 명세, 실제 조회는 403으로 미확인</td></tr><tr><td>Gemini API 무료 등급</td><td>서비스 연동 코드·설정 존재, 입력 내용이 Google 제품 개선에 활용될 수 있어 개인정보 입력 금지, 이번 검증은 가짜 클라이언트 사용</td></tr><tr><td>Codex</td><td>코드·문서 작성 보조, 로컬 테스트 실행, 수정·증거 기록</td></tr><tr><td>Claude와 직접 상호 검토</td><td>연결 가능한 통신 경로를 확인하지 못해 완료로 기재하지 않음</td></tr></tbody></table>
 <h2>7.2 오픈소스 및 보안</h2>
-<p>주요 라이브러리는 FastAPI, Uvicorn, pandas, NumPy, Anthropic SDK, python-dotenv, httpx, pytest, Chart.js이며 보조 앱에 Streamlit과 Matplotlib을 사용합니다. 정확한 버전은 requirements.txt, 외부 자원 내역은 disclosure.md에 기록하고 최종 제출 직전에 실제 사용 범위와 대조합니다.</p>
+<p>주요 라이브러리는 FastAPI, Uvicorn, pandas, NumPy, Google Gen AI SDK, python-dotenv, httpx, pytest, Chart.js이며 보조 앱에 Streamlit과 Matplotlib을 사용합니다. 정확한 버전은 requirements.txt, 외부 자원 내역은 disclosure.md에 기록하고 최종 제출 직전에 실제 사용 범위와 대조합니다.</p>
 <p>실제 데이터 API 키는 제출하지 않습니다. 공고의 예외가 허용하는 외부 AI 평가용 키도 공개 GitHub에 올리지 않고, 준비 여부·비용 한도·폐기 일정을 제출자가 확인합니다.</p>
 <h2>7.3 제출 전 보류 항목</h2>
-<p>실데이터 전체 취득·필수 데이터 사용 증빙·이용조건 확인·요일 API 권한·실제 Claude 평가·센터 PC 검증·인쇄 페이지 확인·최종 ZIP 재검증은 아직 남아 있습니다. 사용자 승인이나 외부 권한이 필요한 항목은 보류하며 완료로 표시하지 않습니다.</p><footer>구현 반영본 · 합성 데모 / 실데이터 소량 확인<span>8 / 8</span></footer></section></body></html>
+<p>실데이터 전체 취득·필수 데이터 사용 증빙·이용조건 확인·요일 API 권한·실제 Gemini 평가·센터 PC 검증·인쇄 페이지 확인·최종 ZIP 재검증은 아직 남아 있습니다. 사용자 승인이나 외부 권한이 필요한 항목은 보류하며 완료로 표시하지 않습니다.</p><footer>구현 반영본 · 합성 데모 / 실데이터 소량 확인<span>8 / 8</span></footer></section></body></html>

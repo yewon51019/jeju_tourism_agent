@@ -5,18 +5,21 @@ import json
 import os
 from types import SimpleNamespace
 
+import httpx
+import httpx2
 import pytest
 from fastapi.testclient import TestClient
+from google.genai import errors, types
 
 from src import server, settings
-from src.agent import ClaudeAgent, run_agent
+from src.agent import GeminiAgent, run_agent
 from src.data_pipeline import load_store
 from src.interpreter import parse_interpretation
 from src.report import unsupported_numbers
 from src.rule_engine import narrate, parse_question
 from src.tools.analysis import Analyzer
 
-GOOD_KEY = "sk-ant-api03-" + "a" * 40
+GOOD_KEY = "AIza" + "a" * 35
 
 
 @pytest.fixture(scope="module")
@@ -24,23 +27,31 @@ def store():
     return load_store()
 
 
-def tool(name, args, block_id):
-    return SimpleNamespace(type="tool_use", name=name, input=args, id=block_id)
+def tool(name, args, call_id):
+    return types.Part(function_call=types.FunctionCall(id=call_id, name=name, args=args))
 
 
-def reply(*blocks, stop="tool_use"):
-    return SimpleNamespace(content=list(blocks), stop_reason=stop)
+def reply(*parts, stop=types.FinishReason.STOP):
+    content = types.Content(role="model", parts=list(parts))
+    return types.GenerateContentResponse(candidates=[types.Candidate(content=content, finish_reason=stop)])
+
+
+def tool_response(request, index=0):
+    return request["contents"][-1].parts[index].function_response.response
 
 
 class FakeClient:
     def __init__(self, replies):
         self.replies = iter(replies)
         self.requests = []
-        self.beta = SimpleNamespace(messages=SimpleNamespace(create=self._create))
+        self.models = SimpleNamespace(generate_content=self._generate)
 
-    def _create(self, **kwargs):
-        self.requests.append({**kwargs, "messages": list(kwargs["messages"])})
-        return next(self.replies)
+    def _generate(self, model, contents, config):
+        self.requests.append({"model": model, "contents": list(contents) if isinstance(contents, list) else contents, "config": config})
+        item = next(self.replies)
+        if isinstance(item, Exception):
+            raise item
+        return item
 
 
 def interpreted(**changes):
@@ -48,7 +59,7 @@ def interpreted(**changes):
               "gender": None, "visitor": None, "district": None, "months": None, "needs_clarification": False,
               "clarification_question": None, "missing_fields": []}
     text = json.dumps({**values, **changes}, ensure_ascii=False)
-    return reply(SimpleNamespace(type="text", text=text), stop="end_turn")
+    return reply(types.Part(text=text))
 
 
 def report_args(summary):
@@ -65,10 +76,9 @@ def test_agent_rejects_invented_number_then_accepts_verified_report(store):
         reply(tool("build_report", report_args("최고 달의 비중은 **99.9%**입니다."), "t3")),
         reply(tool("build_report", report_args(f"최고 달의 비중은 **{facts['peak_share']}%**입니다."), "t4")),
     ])
-    events = list(ClaudeAgent(store, client=client).run("서귀포시 소비 추세"))
+    events = list(GeminiAgent(store, client=client).run("서귀포시 소비 추세"))
     assert events[-1]["type"] == "report"
-    rejected = client.requests[4]["messages"][-1]["content"][0]
-    assert rejected["is_error"] is True and "99.9%" in rejected["content"]
+    assert "99.9%" in tool_response(client.requests[4])["error"]
 
 
 def test_agent_refuses_report_before_verification(store):
@@ -79,47 +89,48 @@ def test_agent_refuses_report_before_verification(store):
         reply(tool("verify_result", {"result_id": "r1"}, "t3")),
         reply(tool("build_report", report_args("요약입니다."), "t4")),
     ])
-    events = list(ClaudeAgent(store, client=client).run("제주 소비 추세"))
+    events = list(GeminiAgent(store, client=client).run("제주 소비 추세"))
     assert events[-1]["type"] == "report"
-    assert client.requests[3]["messages"][-1]["content"][0]["is_error"] is True
+    assert "verify_result" in tool_response(client.requests[3])["error"]
 
 
 def test_agent_clarification_stops_the_loop(store):
     fields = [{"key": "region", "label": "지역", "options": ["제주시", "서귀포시"]}]
     client = FakeClient([interpreted(), reply(tool("ask_user", {"question": "어느 지역인가요?", "fields": fields}, "t1"))])
-    events = list(ClaudeAgent(store, client=client).run("장사 잘 되는 곳"))
+    events = list(GeminiAgent(store, client=client).run("장사 잘 되는 곳"))
     assert events[-1]["type"] == "clarify" and len(client.requests) == 2
 
 
 def test_question_is_requested_as_json_and_passed_to_the_agent(store):
     client = FakeClient([interpreted(region="제주시", months=12), reply(tool("ask_user", {"question": "확인", "fields": []}, "t1"))])
-    list(ClaudeAgent(store, client=client).run("제주시 최근 1년 소비 추세"))
-    schema = client.requests[0]["output_config"]["format"]["schema"]
-    assert client.requests[0]["output_config"]["format"]["type"] == "json_schema" and schema["additionalProperties"] is False
+    list(GeminiAgent(store, client=client).run("제주시 최근 1년 소비 추세"))
+    config = client.requests[0]["config"]
+    schema = config.response_json_schema
+    assert config.response_mime_type == "application/json" and schema["additionalProperties"] is False
     assert set(schema["required"]) == set(schema["properties"])
     assert "제주시" in schema["properties"]["region"]["anyOf"][0]["enum"]
-    assert '"region": "제주시"' in client.requests[1]["messages"][0]["content"]
+    assert '"region": "제주시"' in client.requests[1]["contents"][0].parts[0].text
 
 
 def test_interpreter_can_ask_for_missing_conditions(store):
     client = FakeClient([interpreted(needs_clarification=True, clarification_question="어느 지역인가요?", missing_fields=["region"])])
-    event = list(ClaudeAgent(store, client=client).run("장사 잘 되는 곳"))[-1]
+    event = list(GeminiAgent(store, client=client).run("장사 잘 되는 곳"))[-1]
     assert event["type"] == "clarify" and [f["key"] for f in event["fields"]] == ["region"] and len(client.requests) == 1
 
 
 def test_selected_answers_override_interpretation(store):
-    text = interpreted(region="제주시", needs_clarification=True, missing_fields=["age"]).content[0].text
+    text = interpreted(region="제주시", needs_clarification=True, missing_fields=["age"]).candidates[0].content.parts[0].text
     parsed = parse_interpretation(text, store, {"region": "전체", "age": store.values("연령대")[0]})
     assert parsed.region is None and parsed.age == store.values("연령대")[0] and parsed.needs_clarification is False
 
 
 def test_values_outside_the_data_are_removed(store):
-    parsed = parse_interpretation(interpreted(region="부산시", months=99).content[0].text, store)
+    parsed = parse_interpretation(interpreted(region="부산시", months=99).candidates[0].content.parts[0].text, store)
     assert parsed.region is None and parsed.months == 36
 
 
 def test_partial_answers_keep_the_remaining_question(store):
-    text = interpreted(needs_clarification=True, clarification_question="조건 선택", missing_fields=["region", "age"]).content[0].text
+    text = interpreted(needs_clarification=True, clarification_question="조건 선택", missing_fields=["region", "age"]).candidates[0].content.parts[0].text
     parsed = parse_interpretation(text, store, {"region": "제주시"})
     assert parsed.needs_clarification is True and parsed.missing_fields == ["age"]
     invalid = parse_interpretation(text, store, {"region": "부산시"})
@@ -127,7 +138,7 @@ def test_partial_answers_keep_the_remaining_question(store):
 
 
 def test_choosing_all_themes_clears_the_interpreted_industry(store):
-    text = interpreted(industry=store.values("업종")[0]).content[0].text
+    text = interpreted(industry=store.values("업종")[0]).candidates[0].content.parts[0].text
     parsed = parse_interpretation(text, store, {"theme": "전체"})
     assert parsed.theme is None and parsed.industry is None
 
@@ -144,13 +155,13 @@ def test_all_negative_growth_is_described_as_a_decline(store):
 def test_interpreted_period_is_applied_when_the_tool_call_omits_it(store):
     client = FakeClient([interpreted(months=3), reply(tool("analyze_trend", {}, "t1")),
                          reply(tool("ask_user", {"question": "확인", "fields": []}, "t2"))])
-    list(ClaudeAgent(store, client=client).run("최근 3개월 소비 추세"))
-    assert len(json.loads(client.requests[2]["messages"][-1]["content"][0]["content"])["rows"]) == 3
+    list(GeminiAgent(store, client=client).run("최근 3개월 소비 추세"))
+    assert len(tool_response(client.requests[2])["result"]["rows"]) == 3
 
 
 def test_invalid_theme_answer_keeps_the_interpreted_industry(store):
     industry = store.values("업종")[0]
-    parsed = parse_interpretation(interpreted(industry=industry).content[0].text, store, {"theme": "없는 테마"})
+    parsed = parse_interpretation(interpreted(industry=industry).candidates[0].content.parts[0].text, store, {"theme": "없는 테마"})
     assert parsed.industry == industry
 
 
@@ -160,7 +171,7 @@ def test_zero_month_question_still_produces_a_report(store):
 
 @pytest.mark.parametrize("text", ["자유 형식 답변", '{"analysis_type": "trend"}'])
 def test_malformed_interpretation_falls_back_to_rules(store, text):
-    client = FakeClient([reply(SimpleNamespace(type="text", text=text), stop="end_turn")])
+    client = FakeClient([reply(types.Part(text=text))])
     events = list(run_agent("서귀포시 30대 식음료 프로모션 언제가 좋을까?", None, store, client=client))
     assert any(e["type"] == "notice" for e in events) and events[-1]["report"]["mode"] == "규칙 기반 분석"
 
@@ -175,15 +186,53 @@ def test_report_with_wrong_action_count_is_rejected(store):
         reply(tool("build_report", args, "t3")),
         reply(tool("build_report", report_args("요약입니다."), "t4")),
     ])
-    assert list(ClaudeAgent(store, client=client).run("제주 소비 추세"))[-1]["type"] == "report"
-    rejected = client.requests[4]["messages"][-1]["content"][0]
-    assert rejected["is_error"] is True and "actions" in rejected["content"]
+    assert list(GeminiAgent(store, client=client).run("제주 소비 추세"))[-1]["type"] == "report"
+    assert "actions" in tool_response(client.requests[4])["error"]
 
 
 def test_agent_failure_falls_back_to_rules(store):
-    client = FakeClient([reply(stop="refusal")])
+    client = FakeClient([types.GenerateContentResponse(candidates=[])])
     events = list(run_agent("서귀포시 30대 식음료 프로모션 언제가 좋을까?", None, store, client=client))
     assert any(e["type"] == "notice" for e in events) and events[-1]["type"] == "report"
+    assert events[-1]["report"]["mode"] == "규칙 기반 분석"
+
+
+def test_every_agent_turn_must_call_a_declared_tool(store):
+    client = FakeClient([interpreted(), reply(tool("ask_user", {"question": "확인", "fields": []}, "t1"))])
+    list(GeminiAgent(store, client=client).run("제주 소비 추세"))
+    config = client.requests[1]["config"]
+    assert config.tool_config.function_calling_config.mode == types.FunctionCallingConfigMode.ANY
+    names = {item.name for item in config.tools[0].function_declarations}
+    assert {"list_datasets", "analyze_trend", "verify_result", "ask_user", "build_report"} <= names
+
+
+def test_model_turn_is_returned_unchanged_with_its_thought_signature(store):
+    signed = types.Part(function_call=types.FunctionCall(id="t1", name="list_datasets", args={}), thought_signature=b"signature")
+    client = FakeClient([interpreted(), reply(signed), reply(tool("ask_user", {"question": "확인", "fields": []}, "t2"))])
+    list(GeminiAgent(store, client=client).run("제주 소비 추세"))
+    assert client.requests[2]["contents"][1].parts[0].thought_signature == b"signature"
+    answer = client.requests[2]["contents"][2].parts[0].function_response
+    assert answer.id == "t1" and answer.name == "list_datasets" and "result" in answer.response
+
+
+def test_decimal_months_from_the_model_are_accepted(store):
+    client = FakeClient([interpreted(), reply(tool("analyze_trend", {"months": 3.0}, "t1")),
+                         reply(tool("ask_user", {"question": "확인", "fields": []}, "t2"))])
+    list(GeminiAgent(store, client=client).run("최근 3개월 소비 추세"))
+    assert len(tool_response(client.requests[2])["result"]["rows"]) == 3
+
+
+@pytest.mark.parametrize("failure, expected", [
+    (errors.ClientError(400, {"error": {"status": "INVALID_ARGUMENT", "message": "API key not valid."}}), "인증"),
+    (errors.ClientError(429, {"error": {"status": "RESOURCE_EXHAUSTED", "message": "quota"}}), "무료 사용량"),
+    (errors.ServerError(503, {"error": {"status": "UNAVAILABLE", "message": "busy"}}), "503"),
+    (httpx2.ConnectError("offline"), "연결"),
+    (httpx.ConnectError("offline"), "연결"),
+    (json.JSONDecodeError("not json", "<html>", 0), "해석"),
+])
+def test_gemini_failures_fall_back_to_rules(store, failure, expected):
+    events = list(run_agent("서귀포시 30대 식음료 프로모션 언제가 좋을까?", None, store, client=FakeClient([failure])))
+    assert expected in next(e for e in events if e["type"] == "notice")["message"]
     assert events[-1]["report"]["mode"] == "규칙 기반 분석"
 
 
@@ -231,7 +280,7 @@ def test_weekday_summary_states_its_population(store):
 
 
 def test_validation_error_does_not_echo_the_key(web):
-    secret = "sk-ant-" + "x" * 400
+    secret = "AIza" + "x" * 400
     response = web.post("/api/settings/api-key", json={"api_key": secret})
     assert response.status_code == 422 and secret not in response.text
 
@@ -253,9 +302,9 @@ def test_rank_dimension_skips_fixed_filter(store):
 def web(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "ENV_PATH", tmp_path / ".env")
     monkeypatch.setattr(settings, "check_key", lambda key, model: (True, "API Key를 확인하고 저장했습니다."))
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     yield TestClient(server.app, base_url="http://127.0.0.1:8501")
-    os.environ.pop("ANTHROPIC_API_KEY", None)
+    os.environ.pop("GEMINI_API_KEY", None)
 
 
 def test_key_is_saved_and_never_returned(web):

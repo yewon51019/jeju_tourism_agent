@@ -58,7 +58,7 @@ def main() -> int:
     root = Path(__file__).resolve().parent.parent
     os.chdir(root)
     sys.path.insert(0, str(root))
-    for name in ("ANTHROPIC_API_KEY", "JEJU_HUB_PROJECT_KEY"):
+    for name in ("GEMINI_API_KEY", "JEJU_HUB_PROJECT_KEY"):
         os.environ[name] = ""
     os.environ["OPEN_BROWSER"] = "0"
     block_external_connections()

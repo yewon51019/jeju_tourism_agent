@@ -1,11 +1,11 @@
-"""Claude Tool Use 기반 Agent 루프."""
+"""Gemini Function Calling 기반 Agent 루프."""
 from __future__ import annotations
 
 import json
 import os
 from typing import Any, Iterator
 
-import anthropic
+from google.genai import errors, types
 from pydantic import ValidationError
 
 from .data_pipeline import DataStore
@@ -14,13 +14,14 @@ from .interpreter import Interpretation, ReportDraft, interpretation_schema, par
 from .prompts import INTERPRET_PROMPT, SYSTEM_PROMPT
 from .report import build_payload, unsupported_numbers
 from .rule_engine import clarification_fields, run_rules
+from .settings import CONNECTION_ERRORS, DEFAULT_MODEL, KEY_NAME, MODEL_NAME, create_client
 from .tools.analysis import AnalysisError
 from .tools.registry import TOOLS, ToolBox
 
-DEFAULT_MODEL = "claude-opus-5-5"
 MAX_TURNS = 14
 ANALYSIS_TOOLS = {"analyze_trend", "rank_segments", "weekday_pattern"}
-FALLBACK_BETA = "server-side-fallback-2026-07-01"
+# 함수 호출 형식이 깨진 응답은 한 번 더 요청하면 복구될 수 있다.
+RETRYABLE_FINISH = {types.FinishReason.MALFORMED_FUNCTION_CALL, types.FinishReason.UNEXPECTED_TOOL_CALL}
 
 
 class AgentError(RuntimeError):
@@ -49,46 +50,74 @@ def _reject_report(args: dict[str, Any], box: ToolBox) -> str | None:
     return None
 
 
-class ClaudeAgent:
+def _model_content(response: types.GenerateContentResponse) -> types.Content | None:
+    """응답 본문을 꺼낸다. 차단되었거나 잘린 응답은 오류로 처리한다."""
+    if not response.candidates:
+        raise AgentError("모델이 이 요청의 처리를 거절했습니다.")
+    candidate = response.candidates[0]
+    reason = candidate.finish_reason
+    if reason == types.FinishReason.MAX_TOKENS:
+        raise AgentError("모델 응답이 길이 제한을 넘었습니다.")
+    if reason not in (None, types.FinishReason.STOP, *RETRYABLE_FINISH):
+        raise AgentError("모델이 이 요청의 처리를 거절했습니다.")
+    return candidate.content
+
+
+def _arguments(call: types.FunctionCall, months: int | None) -> dict[str, Any]:
+    """모델이 보낸 인자를 분석 도구가 받는 형태로 정리한다."""
+    args = {key: value for key, value in (call.args or {}).items() if value is not None}
+    if isinstance(args.get("months"), float):
+        args["months"] = int(args["months"])  # JSON 숫자가 12.0처럼 실수로 올 수 있다.
+    if call.name in ANALYSIS_TOOLS and months and "months" not in args:
+        args["months"] = months  # 사용자가 말한 기간이 기본값으로 바뀌지 않게 한다.
+    return args
+
+
+def _tool_result(call: types.FunctionCall, payload: dict[str, Any]) -> types.Part:
+    return types.Part(function_response=types.FunctionResponse(id=call.id, name=call.name, response=payload))
+
+
+class GeminiAgent:
     def __init__(self, store: DataStore, client: Any = None, model: str | None = None) -> None:
         self.store = store
-        self.client = client or anthropic.Anthropic()
-        self.model = model or os.getenv("ANTHROPIC_MODEL", DEFAULT_MODEL)
+        self.client = client or create_client(os.environ[KEY_NAME])
+        self.model = model or os.getenv(MODEL_NAME) or DEFAULT_MODEL
 
     def _interpret(self, question: str, answers: dict[str, str] | None) -> Interpretation:
-        """사용자 문장을 Claude에 보내 정해진 JSON 형식의 분석 조건으로 받는다."""
-        response = self.client.beta.messages.create(
+        """사용자 문장을 Gemini에 보내 정해진 JSON 형식의 분석 조건으로 받는다."""
+        response = self.client.models.generate_content(
             model=self.model,
-            max_tokens=4000,
-            betas=[FALLBACK_BETA],
-            fallbacks="default",
-            output_config={"effort": "low", "format": {"type": "json_schema", "schema": interpretation_schema(self.store)}},
-            system=INTERPRET_PROMPT,
-            messages=[{"role": "user", "content": question}],
+            contents=question,
+            config=types.GenerateContentConfig(
+                system_instruction=INTERPRET_PROMPT,
+                max_output_tokens=8000,
+                response_mime_type="application/json",
+                response_json_schema=interpretation_schema(self.store),
+            ),
         )
-        if response.stop_reason in ("refusal", "max_tokens"):
-            raise AgentError("질문 해석 응답을 완성하지 못했습니다.")
-        text = "".join(block.text for block in response.content if block.type == "text")
+        content = _model_content(response)
+        text = "".join(part.text for part in (content.parts or []) if part.text and not part.thought) if content else ""
         try:
             return parse_interpretation(text, self.store, answers)
         except ValueError as exc:
             raise AgentError("질문 해석 결과가 정해진 형식과 다릅니다.") from exc
 
-    def _create(self, messages: list[dict[str, Any]]) -> Any:
-        return self.client.beta.messages.create(
+    def _create(self, contents: list[types.Content]) -> types.GenerateContentResponse:
+        return self.client.models.generate_content(
             model=self.model,
-            max_tokens=16000,
-            betas=[FALLBACK_BETA],
-            fallbacks="default",
-            output_config={"effort": "medium"},
-            system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
-            tools=TOOLS,
-            messages=messages,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_PROMPT,
+                max_output_tokens=16000,
+                tools=[types.Tool(function_declarations=TOOLS)],
+                # 모든 단계는 도구 호출로 진행되고 build_report 또는 ask_user로 끝난다.
+                tool_config=types.ToolConfig(function_calling_config=types.FunctionCallingConfig(mode="ANY")),
+            ),
         )
 
     def run(self, question: str, answers: dict[str, str] | None = None) -> Iterator[dict[str, Any]]:
         box = ToolBox(self.store)
-        yield step(1, "running", "Claude가 질문의 의도와 조건을 해석하고 있습니다.")
+        yield step(1, "running", "Gemini가 질문의 의도와 조건을 해석하고 있습니다.")
         parsed = self._interpret(question, answers)
         conditions = parsed.model_dump(exclude={"needs_clarification", "clarification_question", "missing_fields"}, exclude_none=True)
         box.calls.append(f"interpret_question({json.dumps(conditions, ensure_ascii=False)})")
@@ -98,36 +127,30 @@ class ClaudeAgent:
                 yield clarify(parsed.clarification_question or "분석 조건을 선택해 주세요.", fields)
                 return
         text = f"{question}\n\n구조화된 질문 해석 결과: {json.dumps(conditions, ensure_ascii=False)}"
-        messages: list[dict[str, Any]] = [{"role": "user", "content": text}]
+        contents = [types.Content(role="user", parts=[types.Part(text=text)])]
         stage, nudged = 1, False
 
         for _ in range(MAX_TURNS):
-            response = self._create(messages)
-            if response.stop_reason == "refusal":
-                raise AgentError("모델이 이 요청의 처리를 거절했습니다.")
-            if response.stop_reason == "max_tokens":
-                raise AgentError("모델 응답이 길이 제한을 넘었습니다.")
-            messages.append({"role": "assistant", "content": response.content})
-            if response.stop_reason == "pause_turn":
-                continue
+            content = _model_content(self._create(contents))
+            parts = content.parts or [] if content else []
+            if parts:
+                contents.append(content)  # thought signature가 유지되도록 응답을 바꾸지 않고 그대로 넣는다.
 
-            tool_uses = [block for block in response.content if block.type == "tool_use"]
-            if not tool_uses:
+            calls = [part.function_call for part in parts if part.function_call]
+            if not calls:
                 if nudged:
                     raise AgentError("모델이 보고서를 제출하지 않았습니다.")
                 nudged = True
-                messages.append({"role": "user", "content": "build_report 또는 ask_user 도구로 작업을 마무리해 주세요."})
+                contents.append(types.Content(role="user", parts=[types.Part(text="build_report 또는 ask_user 도구로 작업을 마무리해 주세요.")]))
                 continue
 
             tool_results = []
-            for block in tool_uses:
-                args = block.input if isinstance(block.input, dict) else {}
-                if block.name in ANALYSIS_TOOLS and parsed.months and "months" not in args:
-                    args = {**args, "months": parsed.months}  # 사용자가 말한 기간이 기본값으로 바뀌지 않게 한다.
-                if block.name == "ask_user":
+            for call in calls:
+                args = _arguments(call, parsed.months)
+                if call.name == "ask_user":
                     yield clarify(args.get("question", "분석 조건을 선택해 주세요."), args.get("fields", []))
                     return
-                if block.name == "build_report":
+                if call.name == "build_report":
                     reason = _reject_report(args, box)
                     if reason is None:
                         if stage < 4:
@@ -135,46 +158,54 @@ class ClaudeAgent:
                         yield step(4, "done", "보고서 생성 완료")
                         results = [box.analyzer.get(i) for i in args["result_ids"]]
                         yield report(build_payload(question, args["title"], args["summary"], args["intent"], args["actions"],
-                                                   results, box.calls, self.store, f"Claude Agent · {self.model}"))
+                                                   results, box.calls, self.store, f"Gemini Agent · {self.model}"))
                         return
-                    tool_results.append({"type": "tool_result", "tool_use_id": block.id, "content": reason, "is_error": True})
+                    tool_results.append(_tool_result(call, {"error": reason}))
                     continue
-                if block.name in ANALYSIS_TOOLS and stage < 3:
+                if call.name in ANALYSIS_TOOLS and stage < 3:
                     yield step(1, "done", "조건 해석 완료")
-                    yield step(2, "done", f"{block.name} 도구 선택")
+                    yield step(2, "done", f"{call.name} 도구 선택")
                     yield step(3, "running", "코드로 집계하고 원본 데이터로 재계산하고 있습니다.")
                     stage = 3
                 try:
-                    output = box.run(block.name, args)
-                    tool_results.append({"type": "tool_result", "tool_use_id": block.id,
-                                         "content": json.dumps(output, ensure_ascii=False)})
-                except (AnalysisError, KeyError, TypeError) as exc:
-                    tool_results.append({"type": "tool_result", "tool_use_id": block.id, "content": str(exc), "is_error": True})
-            messages.append({"role": "user", "content": tool_results})
+                    tool_results.append(_tool_result(call, {"result": box.run(call.name, args)}))
+                except (AnalysisError, KeyError, TypeError, ValueError) as exc:
+                    tool_results.append(_tool_result(call, {"error": str(exc)}))
+            contents.append(types.Content(role="user", parts=tool_results))
         raise AgentError("분석 단계가 허용 횟수를 초과했습니다.")
 
 
 def llm_available() -> bool:
-    return bool(os.getenv("ANTHROPIC_API_KEY"))
+    return bool(os.getenv(KEY_NAME))
+
+
+def _api_failure(exc: errors.APIError) -> str:
+    """Gemini API 오류를 사용자에게 보여줄 문장으로 바꾼다. 응답 원문은 노출하지 않는다."""
+    detail = f"{exc.status or ''} {exc.message or ''}".lower()
+    if exc.code in (401, 403) or "api key" in detail or "api_key" in detail:
+        return "API Key 인증에 실패했습니다."
+    if exc.code == 429:
+        return "Gemini 무료 사용량 한도에 도달했습니다."
+    if exc.code == 404:
+        return "설정한 Gemini 모델을 사용할 수 없습니다."
+    return f"Gemini API 오류가 발생했습니다 (상태 코드 {exc.code})."
 
 
 def run_agent(question: str, answers: dict[str, str] | None, store: DataStore, client: Any = None) -> Iterator[dict[str, Any]]:
-    """Claude로 분석하고, 사용할 수 없으면 규칙 기반 분석으로 전환한다."""
+    """Gemini로 분석하고, 사용할 수 없으면 규칙 기반 분석으로 전환한다."""
     try:
         if client is None and not llm_available():
             yield from run_rules(question, answers, store)
             return
         try:
-            yield from ClaudeAgent(store, client=client).run(question, answers)
+            yield from GeminiAgent(store, client=client).run(question, answers)
             return
-        except anthropic.AuthenticationError:
-            reason = "API Key 인증에 실패했습니다."
-        except anthropic.RateLimitError:
-            reason = "API 사용량 한도에 도달했습니다."
-        except anthropic.APIStatusError as exc:
-            reason = f"Claude API 오류가 발생했습니다 (상태 코드 {exc.status_code})."
-        except anthropic.APIConnectionError:
-            reason = "Claude API에 연결할 수 없습니다."
+        except errors.APIError as exc:
+            reason = _api_failure(exc)
+        except CONNECTION_ERRORS:
+            reason = "Gemini API에 연결할 수 없습니다."
+        except (errors.UnknownApiResponseError, json.JSONDecodeError):
+            reason = "Gemini API 응답을 해석할 수 없습니다."
         except AgentError as exc:
             reason = str(exc)
         message = f"{reason} 규칙 기반 분석으로 전환했습니다."

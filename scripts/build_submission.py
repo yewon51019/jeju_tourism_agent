@@ -1,7 +1,7 @@
 """공모전 제출용 ZIP을 dist 폴더에 만든다.
 
 실행: python scripts/build_submission.py
-평가용 Claude API 키는 프로젝트 폴더의 EVALUATION_KEY.txt에 한 줄로 저장해 두면 ZIP에 포함된다.
+평가용 Gemini API 키는 프로젝트 폴더의 EVALUATION_KEY.txt에 한 줄로 저장해 두면 ZIP에 포함된다.
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ from src.settings import KEY_PATTERN  # noqa: E402
 
 PACKAGE = "jeju_tourism_agent"
 DIST = ROOT / "dist"
-SKIP_REQUIREMENTS = ("streamlit", "matplotlib")
+SKIP_REQUIREMENTS = ("streamlit", "matplotlib", "anthropic")
 FILES = [".env.example", "run.bat", "download_data.bat", "pytest.ini", "docs/user_manual.md", "docs/data_usage_spec.md",
          "docs/disclosure.md", "scripts/fetch_hub_data.py", "scripts/evaluate.py", "tests/test_analysis.py",
          "tests/test_web_agent.py", "tests/test_rank_coverage.py", "tests/test_hub_fetch.py"]
@@ -39,18 +39,19 @@ def evaluation_key_doc() -> tuple[str, bool]:
     key = path.read_text(encoding="utf-8").strip() if path.exists() else ""
     if key and not KEY_PATTERN.fullmatch(key):
         raise SystemExit("EVALUATION_KEY.txt의 키 형식이 올바르지 않습니다.")
-    value = key or "[제출 전 평가용 Claude API 키 입력]"
-    return ("# 평가용 Claude API 키\n\n"
+    value = key or "[제출 전 평가용 Gemini API 키 입력]"
+    return ("# 평가용 Gemini API 키\n\n"
             "심사위원 평가를 위해 참가자가 준비한 외부 AI API 키입니다.\n\n"
             f"```text\n{value}\n```\n\n"
             "## 사용 방법\n\n"
             "1. `run.bat`을 실행합니다.\n"
             "2. 화면 오른쪽 위 `API 키 입력`을 누릅니다.\n"
             "3. 위 키를 붙여넣고 `확인 후 저장`을 누릅니다.\n\n"
-            "화면 대신 프로젝트 폴더의 `.env` 파일에서 `ANTHROPIC_API_KEY=` 뒤에 키를 입력해도 됩니다.\n\n"
+            "화면 대신 프로젝트 폴더의 `.env` 파일에서 `GEMINI_API_KEY=` 뒤에 키를 입력해도 됩니다.\n\n"
             "## 안내\n\n"
-            "- 이 키는 평가 전용이며 사용 한도가 설정되어 있습니다.\n"
-            "- 평가 중 발생하는 API 비용은 참가자가 부담합니다.\n"
+            "- 이 키는 평가 전용이며 결제를 연결하지 않은 Gemini API 무료 등급 키입니다. 평가 중 비용이 발생하지 않습니다.\n"
+            "- 무료 등급 사용량을 초과하면 규칙 기반 분석으로 전환됩니다.\n"
+            "- 무료 등급에서는 입력 내용이 Google 제품 개선에 활용될 수 있으므로 개인정보나 민감정보를 입력하지 마세요.\n"
             "- 평가 기간 종료 후 이 키는 삭제·폐기합니다.\n"
             "- 제주데이터허브 프로젝트 키는 제출물에 포함하지 않았습니다. 발급과 설정 방법은 `docs/user_manual.md` 2.2절에 있습니다.\n"), bool(key)
 
@@ -66,14 +67,14 @@ def result_report(store, evaluation: str) -> str:
              "본 Agent는 자연어 질문만으로 소비 시기, 고객층, 지역, 업종을 분석하고 근거가 있는 보고서를 제공합니다.", "",
              "## 2. Agent 구조", "",
              "| 단계 | 담당 | 내용 |", "| --- | --- | --- |",
-             "| 질문 해석 | Claude + Python | 지역, 업종, 고객층, 기간, 분석 유형을 정해진 JSON 형식으로 받아 코드로 검증 |",
-             "| 조건 확인 | Claude | 조건이 모호하면 사용자에게 선택지 제시 |",
+             "| 질문 해석 | Gemini + Python | 지역, 업종, 고객층, 기간, 분석 유형을 정해진 JSON 형식으로 받아 코드로 검증 |",
+             "| 조건 확인 | Gemini | 조건이 모호하면 사용자에게 선택지 제시 |",
              "| 데이터 수집 | Python | 프로젝트 키가 있으면 제주데이터허브 Open API를 호출해 데이터 저장 |",
-             "| 분석 계획 | Claude | 데이터와 도구 선택 |",
+             "| 분석 계획 | Gemini | 데이터와 도구 선택 |",
              "| 집계·분석 | Python | 추세, 순위, 비중, 증감률, 요일 패턴 계산 |",
              "| 결과 검증 | Python | 원본 재계산, 조건 일치, 비중 합계, 표본 크기 점검 |",
-             "| 보고서 생성 | Claude + Python | 검증된 수치로 보고서 작성, 근거 없는 수치 차단 |", "",
-             "Claude API를 사용할 수 없으면 규칙 기반 분석으로 전환해 같은 계산과 검증을 수행합니다.", "",
+             "| 보고서 생성 | Gemini + Python | 검증된 수치로 보고서 작성, 근거 없는 수치 차단 |", "",
+             "Gemini API를 사용할 수 없으면 규칙 기반 분석으로 전환해 같은 계산과 검증을 수행합니다.", "",
              "## 3. 주요 기능", "",
              "- 자연어 질의와 조건 되묻기", "- 월별 추세, 순위, 전년 대비 증감률, 요일별 패턴 분석",
              "- 원본 데이터 재계산 검증과 판단 로그", "- 차트, 수치 근거, 실행 제안이 포함된 보고서", "- 요약 복사와 PDF 저장", "",
@@ -97,7 +98,7 @@ def result_report(store, evaluation: str) -> str:
               "- 카드 이용 내역만 분석하며 현금 등 다른 결제 수단은 포함하지 않습니다.",
               "- 요일별 데이터에는 업종, 연령, 성별이 없고 월간 데이터와 수록 기간이 다릅니다.",
               "- 분석 결과는 상관관계에 기반하며 실행 제안의 매출 효과를 보장하지 않습니다.",
-              "- 위 평가는 규칙 기반 경로를 측정한 것이며 Claude API 경로의 성능은 포함하지 않습니다.", "",
+              "- 위 평가는 규칙 기반 경로를 측정한 것이며 Gemini API 경로의 성능은 포함하지 않습니다.", "",
               "## 7. 센터 활용 방안", "",
               "- 방문 이용자의 셀프 분석 도구와 소상공인 상담 자료로 활용합니다.",
               "- 판단 로그를 데이터 분석 입문 교육 자료로 활용합니다.",
@@ -109,7 +110,7 @@ def collect() -> dict[str, Path]:
     files = {name: ROOT / name for name in FILES}
     for folder, pattern in TREES.items():
         for path in (ROOT / folder).rglob(pattern):
-            if path.is_file() and not EXCLUDED_DIRS & set(path.relative_to(ROOT).parts):
+            if path.is_file() and path.name != ".env" and not EXCLUDED_DIRS & set(path.relative_to(ROOT).parts):
                 files[path.relative_to(ROOT).as_posix()] = path
     for name in ("card_monthly.csv", "card_weekday.csv"):
         path = ROOT / "data" / "raw" / name
@@ -121,12 +122,15 @@ def collect() -> dict[str, Path]:
 def scan(contents: dict[str, bytes]) -> None:
     load_dotenv(ROOT / ".env")
     hub_key = os.getenv("JEJU_HUB_PROJECT_KEY", "").strip()
+    gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
     for name, data in contents.items():
         if Path(name).name == ".env" or Path(name).suffix not in TEXT_SUFFIXES:
             continue
         text = data.decode("utf-8", "ignore")
         if name != "EVALUATION_KEY.md" and SECRET.search(text):
             raise SystemExit(f"제출물에 인증 정보로 보이는 값이 있습니다: {name}")
+        if name != "EVALUATION_KEY.md" and gemini_key and gemini_key in text:
+            raise SystemExit(f"제출물에 Gemini API 키가 있습니다: {name}")
         if hub_key and hub_key in text:
             raise SystemExit(f"제출물에 제주데이터허브 프로젝트 키가 있습니다: {name}")
 
@@ -155,7 +159,7 @@ def main() -> int:
             archive.writestr(f"{PACKAGE}/{name}", contents[name])
     print(f"ZIP: {target} ({target.stat().st_size / 1024 / 1024:.1f}MB, {len(contents)}개 파일)")
     print(f"데이터: {'합성 샘플 (실제 데이터 없음)' if store.is_sample else '제주데이터허브 실제 데이터'}")
-    print(f"평가용 Claude API 키: {'포함됨' if has_key else '미포함 (EVALUATION_KEY.md에 입력 필요)'}")
+    print(f"평가용 Gemini API 키: {'포함됨' if has_key else '미포함 (EVALUATION_KEY.md에 입력 필요)'}")
     return 0
 
 
