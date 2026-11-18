@@ -126,7 +126,7 @@ def test_short_period_does_not_claim_top_three_months(store):
 
 def test_weekday_summary_states_its_population(store):
     report = list(run_agent("제주시 도민 주말 소비 패턴", None, store))[-1]["report"]
-    assert "제주시 전체 소비 기준" in report["summary"]
+    assert "제주시 요일별 데이터 기준" in report["summary"]
     assert any("도민과 관광객 구분이 없어" in item for item in report["limitations"])
 
 

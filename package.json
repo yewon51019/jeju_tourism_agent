@@ -1,0 +1,12 @@
+{
+  "name": "jeju-consumption-insight-demo",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/analysis.test.cjs",
+    "docs": "node scripts/build-proposal.cjs"
+  },
+  "dependencies": {
+    "firebase": "^13.4.0"
+  }
+}

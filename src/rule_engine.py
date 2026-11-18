@@ -11,8 +11,10 @@ from .report import build_payload, month_label, money, signed, unsupported_numbe
 from .tools.analysis import Result
 from .tools.registry import ToolBox
 
-THEME_WORDS = {"식음료": ["식음료", "외식", "먹거리", "맛집", "음식"], "숙박": ["숙박", "호텔", "리조트", "펜션"],
-               "쇼핑": ["쇼핑", "기념품", "소매"], "문화·레저": ["레저", "체험", "문화", "액티비티"], "교통": ["교통", "렌터카"]}
+LEISURE_WORDS = ["레저", "레져", "체험", "문화", "액티비티"]
+THEME_WORDS = {"식음료": ["식음료", "외식", "먹거리", "맛집", "음식", "카페", "디저트", "커피", "식당"],
+               "숙박": ["숙박", "호텔", "리조트", "펜션"], "쇼핑": ["쇼핑", "기념품"], "소매": ["소매"],
+               "문화·레저": LEISURE_WORDS, "문화/레져": LEISURE_WORDS, "교통": ["교통", "렌터카"], "유흥": ["유흥", "주점"]}
 INDUSTRY_WORDS = {"카페·디저트": ["카페", "디저트", "커피"], "음식점": ["음식점", "식당"]}
 DISTRICT_WORDS = {"중문": "중문관광단지", "성산": "성산일출봉", "올레시장": "서귀포매일올레시장", "표선": "표선해변",
                   "연동": "연동상권", "함덕": "함덕해변", "애월": "애월해안", "협재": "협재해변"}
@@ -104,8 +106,9 @@ def parse_question(question: str, answers: dict[str, str] | None, store: DataSto
         filters["gender"] = "여성"
     elif re.search(r"남성|남자", q) and "남성" in store.values("성별"):
         filters["gender"] = "남성"
-    if "도민" in q and "도민" in store.values("관광객구분"):
-        filters["visitor"] = "도민"
+    resident = next((v for v in store.values("관광객구분") if "도민" in v), None)
+    if "도민" in q and resident:
+        filters["visitor"] = resident
 
     industries, themes = store.values("업종"), store.values("테마")
     industry = next((i for i in industries if i in q), None) or next(
@@ -116,6 +119,8 @@ def parse_question(question: str, answers: dict[str, str] | None, store: DataSto
         filters["industry"] = industry
     elif theme:
         filters["theme"] = theme
+    if re.search(r"카페|디저트|커피", q) and "카페·디저트" not in industries and theme:
+        parsed.notices.append(f"카페·디저트는 별도 업종으로 제공되지 않아 {theme} 전체로 분석했습니다.")
 
     for key in ("region", "theme", "age"):
         if key in answers:
@@ -123,6 +128,8 @@ def parse_question(question: str, answers: dict[str, str] | None, store: DataSto
                 filters.pop(key, None)
             else:
                 filters[key] = answers[key]
+    if filters.get("theme") in industries:  # 테마와 업종이 같은 값이면 하나의 조건으로 다룬다.
+        filters["industry"] = filters.pop("theme")
 
     span = re.search(r"최근\s*(\d+)\s*(개월|달|년)", q)
     if span:
@@ -138,7 +145,7 @@ def parse_question(question: str, answers: dict[str, str] | None, store: DataSto
     if town and "region" not in filters:
         filters["region"] = TOWN_REGION[town]
         parsed.notices.append(f"읍면 단위 데이터가 없어 {town} 대신 {filters['region']} 전체로 분석했습니다.")
-    if filters.get("visitor") == "도민" and parsed.intent in ("weekday", "timing"):
+    if "도민" in filters.get("visitor", "") and parsed.intent in ("weekday", "timing"):
         parsed.notices.append("요일별 데이터에는 도민과 관광객 구분이 없어 요일 비중은 지역 전체 소비 기준입니다.")
     if "외국인" in q:
         parsed.notices.append("외국인 관광객 데이터가 없어 내국인 관광객 기준으로 분석했습니다.")
@@ -203,7 +210,8 @@ def _execute(parsed: Parsed, box: ToolBox) -> list[Result]:
 
 def _scope(parsed: Parsed) -> str:
     f = parsed.filters
-    parts = [f.get("region") or parsed.district or "제주 전체", f.get("age"), f.get("gender"), f.get("visitor", "관광객"),
+    default_visitor = "관광객" if not f.get("visitor") else f["visitor"]
+    parts = [f.get("region") or parsed.district or "제주 전체", f.get("age"), f.get("gender"), default_visitor,
              f.get("industry") or f.get("theme")]
     return " ".join(p for p in parts if p)
 
@@ -259,11 +267,11 @@ def narrate(parsed: Parsed, results: list[Result]) -> tuple[str, str, list[dict[
         base = parsed.district or parsed.filters.get("region") or "제주"
         if parsed.intent == "weekday":
             title = f"{base} 요일별 소비 패턴 분석"
-        sentence = (f"{base} 전체 소비 기준으로 **{days}요일**에 주간 소비의 **{f['top_days_share']}%**가 집중되고, "
+        sentence = (f"{base} 요일별 데이터 기준으로 **{days}요일**에 주간 소비의 **{f['top_days_share']}%**가 집중되고, "
                     f"주말(토·일) 비중은 {f['weekend_share']}%, 평일(월~금) 비중은 {f['weekday_share']}%입니다.")
         sentences.insert(0 if parsed.intent == "weekday" else len(sentences), sentence)
         actions.insert(1, {"badge": "요일 전략", "title": f"{days}요일 집중 운영",
-                           "desc": f"{base} 전체 소비 기준으로 {days}요일의 비중이 {f['top_days_share']}%로 가장 높습니다. 이 요일에 인력과 재고를 우선 배치하고, {f['low_day']}요일에는 할인 혜택을 검토하세요."})
+                           "desc": f"{base} 요일별 데이터 기준으로 {days}요일의 비중이 {f['top_days_share']}%로 가장 높습니다. 이 요일에 인력과 재고를 우선 배치하고, {f['low_day']}요일에는 할인 혜택을 검토하세요."})
     return title, " ".join(sentences), actions[:4]
 
 

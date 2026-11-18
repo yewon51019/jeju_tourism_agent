@@ -1,0 +1,271 @@
+[
+  {
+    "id": 1,
+    "question": "2025년 서귀포시 30대 음식점 소비 추세",
+    "expected": "analyze_trend",
+    "filters": {
+      "year": 2025,
+      "region": "서귀포시",
+      "age": "30대",
+      "sector": "음식점"
+    }
+  },
+  {
+    "id": 2,
+    "question": "2024년 제주시 20대 쇼핑 추세",
+    "expected": "analyze_trend",
+    "filters": {
+      "year": 2024,
+      "region": "제주시",
+      "age": "20대",
+      "sector": "쇼핑"
+    }
+  },
+  {
+    "id": 3,
+    "question": "2025년 서귀포시 숙박 소비",
+    "expected": "analyze_trend",
+    "filters": {
+      "year": 2025,
+      "region": "서귀포시",
+      "sector": "숙박"
+    }
+  },
+  {
+    "id": 4,
+    "question": "2025년 제주시 여성 소비 추세",
+    "expected": "analyze_trend",
+    "filters": {
+      "year": 2025,
+      "region": "제주시",
+      "gender": "여성"
+    }
+  },
+  {
+    "id": 5,
+    "question": "2024년 서귀포시 남성 소비",
+    "expected": "analyze_trend",
+    "filters": {
+      "year": 2024,
+      "region": "서귀포시",
+      "gender": "남성"
+    }
+  },
+  {
+    "id": 6,
+    "question": "2025년 제주시 40대 소비",
+    "expected": "analyze_trend",
+    "filters": {
+      "year": 2025,
+      "region": "제주시",
+      "age": "40대"
+    }
+  },
+  {
+    "id": 7,
+    "question": "2024년 서귀포시 50대 소비",
+    "expected": "analyze_trend",
+    "filters": {
+      "year": 2024,
+      "region": "서귀포시",
+      "age": "50대"
+    }
+  },
+  {
+    "id": 8,
+    "question": "2025년 제주시 60대 식음료 소비",
+    "expected": "analyze_trend",
+    "filters": {
+      "year": 2025,
+      "region": "제주시",
+      "age": "60대",
+      "sector": "음식점"
+    }
+  },
+  {
+    "id": 9,
+    "question": "2025년 서귀포시 식당 소비",
+    "expected": "analyze_trend",
+    "filters": {
+      "year": 2025,
+      "region": "서귀포시",
+      "sector": "음식점"
+    }
+  },
+  {
+    "id": 10,
+    "question": "2024년 제주시 숙박 소비 추세",
+    "expected": "analyze_trend",
+    "filters": {
+      "year": 2024,
+      "region": "제주시",
+      "sector": "숙박"
+    }
+  },
+  {
+    "id": 11,
+    "question": "2025년 지역 순위",
+    "expected": "rank_segments",
+    "filters": {
+      "year": 2025
+    }
+  },
+  {
+    "id": 12,
+    "question": "2024년 업종 순위",
+    "expected": "rank_segments",
+    "filters": {
+      "year": 2024
+    }
+  },
+  {
+    "id": 13,
+    "question": "2025년 연령 비중",
+    "expected": "rank_segments",
+    "filters": {
+      "year": 2025
+    }
+  },
+  {
+    "id": 14,
+    "question": "2025년 성별 비중",
+    "expected": "rank_segments",
+    "filters": {
+      "year": 2025
+    }
+  },
+  {
+    "id": 15,
+    "question": "2024년 테마 순위",
+    "expected": "rank_segments",
+    "filters": {
+      "year": 2024
+    }
+  },
+  {
+    "id": 16,
+    "question": "2025년 서귀포시 업종 순위",
+    "expected": "rank_segments",
+    "filters": {
+      "year": 2025,
+      "region": "서귀포시"
+    }
+  },
+  {
+    "id": 17,
+    "question": "2025년 제주시 고객층 비중",
+    "expected": "rank_segments",
+    "filters": {
+      "year": 2025,
+      "region": "제주시"
+    }
+  },
+  {
+    "id": 18,
+    "question": "2024년 여성 지역 순위",
+    "expected": "rank_segments",
+    "filters": {
+      "year": 2024,
+      "gender": "여성"
+    }
+  },
+  {
+    "id": 19,
+    "question": "2025년 요일별 소비",
+    "expected": "query_spending",
+    "filters": {
+      "year": 2025
+    }
+  },
+  {
+    "id": 20,
+    "question": "2024년 요일 비교",
+    "expected": "query_spending",
+    "filters": {
+      "year": 2024
+    }
+  },
+  {
+    "id": 21,
+    "question": "2025년 요일별 순위",
+    "expected": "query_spending",
+    "filters": {
+      "year": 2025
+    }
+  },
+  {
+    "id": 22,
+    "question": "2024년 요일별 이용금액",
+    "expected": "query_spending",
+    "filters": {
+      "year": 2024
+    }
+  },
+  {
+    "id": 23,
+    "question": "2025년 요일별 이용횟수",
+    "expected": "query_spending",
+    "filters": {
+      "year": 2025
+    }
+  },
+  {
+    "id": 24,
+    "question": "서귀포시 30대 소비",
+    "expected": "clarification",
+    "filters": {
+      "region": "서귀포시",
+      "age": "30대"
+    }
+  },
+  {
+    "id": 25,
+    "question": "제주시 음식점 소비",
+    "expected": "clarification",
+    "filters": {
+      "region": "제주시",
+      "sector": "음식점"
+    }
+  },
+  {
+    "id": 26,
+    "question": "2025년 소비 분석",
+    "expected": "clarification",
+    "filters": {
+      "year": 2025
+    }
+  },
+  {
+    "id": 27,
+    "question": "언제가 좋을까",
+    "expected": "clarification",
+    "filters": {}
+  },
+  {
+    "id": 28,
+    "question": "2025년 서귀포시 내년 매출 예측",
+    "expected": "unsupported",
+    "filters": {
+      "year": 2025,
+      "region": "서귀포시"
+    }
+  },
+  {
+    "id": 29,
+    "question": "2025년 30대 요일별 소비",
+    "expected": "unsupported",
+    "filters": {
+      "year": 2025,
+      "age": "30대"
+    }
+  },
+  {
+    "id": 30,
+    "question": "2025년 제주시 현금 소비",
+    "expected": "unsupported",
+    "filters": {
+      "year": 2025,
+      "region": "제주시"
+    }
+  }
+]

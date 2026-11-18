@@ -9,3 +9,5 @@ data/raw/*.csv
 data/processed/*.csv
 outputs/
 *.log
+dist/
+EVALUATION_KEY.txt

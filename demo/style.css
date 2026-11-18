@@ -1,0 +1,105 @@
+/* 1. 공통 색상: 참고 디자인의 감귤·귤잎·크림 팔레트 */
+:root {
+  --orange: #ff7a00;
+  --orange-light: #fff4e8;
+  --leaf: #2d5a3c;
+  --leaf-light: #ebf3ee;
+  --background: #faf8f5;
+  --ink: #1e2421;
+  --muted: #5c6660;
+  --line: #eae5dc;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--background); color: var(--ink); font-family: 'Pretendard', 'Segoe UI', 'Malgun Gothic', sans-serif; -webkit-font-smoothing: antialiased; }
+button, select, textarea { font: inherit; }
+button, summary { cursor: pointer; }
+a { color: inherit; text-decoration: none; }
+button:focus-visible, a:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 3px solid var(--orange); outline-offset: 3px; }
+button:hover { filter: brightness(.96); }
+[hidden] { display: none !important; }
+
+/* 2. 상단 헤더와 페이지 폭 */
+.site-header { position: sticky; top: 0; z-index: 5; background: #faf8f5f2; backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+.header-content { max-width: 1152px; margin: auto; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.brand { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 750; letter-spacing: -.5px; }
+.logo { display: grid; place-items: center; width: 38px; height: 38px; background: var(--orange); border-radius: 12px; font-size: 22px; }
+.brand small { display: block; font-size: 10px; font-weight: 400; color: var(--muted); margin-top: 4px; }
+nav { display: flex; align-items: center; gap: 12px; }
+main { max-width: 1152px; padding: 32px 24px; margin: auto; }
+.panel { background: white; border: 1px solid var(--line); border-radius: 24px; padding: 28px; margin-bottom: 24px; box-shadow: 0 2px 5px #34281304; }
+.badge { display: inline-block; border: 1px solid #c6ddd0; border-radius: 30px; background: var(--leaf-light); color: var(--leaf); padding: 6px 11px; font-size: 11px; font-weight: 600; }
+
+/* 3. 질문 입력 영역 */
+.hero { position: relative; background: radial-gradient(ellipse at top right, #fff4e8a8, transparent 45%), white; }
+.hero-heading { text-align: center; margin: 9px auto 27px; }
+h1 { font-size: clamp(26px, 3vw, 35px); letter-spacing: -1.4px; line-height: 1.45; margin: 16px 0 12px; }
+h1 em { font-style: normal; color: var(--orange); }
+.hero-heading p { font-size: 14px; color: var(--muted); line-height: 1.8; }
+.hero-heading strong { color: var(--ink); }
+.query-area { max-width: 850px; margin: auto; }
+.input-label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.query-input { display: flex; align-items: center; gap: 10px; border: 2px solid #e2ddd5; border-radius: 16px; background: var(--background); padding: 8px; }
+.query-input:focus-within { border-color: var(--orange); }
+textarea { flex: 1; min-width: 0; border: none; background: transparent; padding: 8px 10px; line-height: 1.7; resize: vertical; font-size: 14px; color: var(--ink); }
+.primary, .leaf-button, .secondary { border-radius: 11px; padding: 12px 17px; border: 0; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.primary { background: var(--orange); color: white; }
+.leaf-button { background: var(--leaf); color: white; }
+.secondary { display: inline-block; border: 1px solid #e2ddd5; background: white; color: var(--ink); }
+.examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 22px; }
+.examples button { font-size: 11px; border: 1px solid #e2ddd5; padding: 9px 12px; border-radius: 10px; background: var(--background); color: var(--muted); }
+.examples button:first-child { background: var(--orange-light); border-color: #ffd8b5; color: #914b0d; }
+.examples button:last-child { background: var(--leaf-light); border-color: #c6ddd0; color: var(--leaf); }
+.clarification { background: #ebf3eeaa; border: 1px solid #c6ddd0; padding: 19px; border-radius: 17px; }
+.section-caption { font-size: 10px; font-weight: 800; letter-spacing: 1px; color: var(--leaf); }
+#question-status { font-size: 12px; line-height: 1.8; color: var(--leaf); }
+.filters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0; }
+.filters label { font-size: 11px; color: var(--muted); font-weight: 600; }
+select { display: block; width: 100%; margin-top: 7px; border: 1px solid #dce5dc; background: white; color: var(--ink); padding: 10px; border-radius: 8px; }
+.filter-footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.fine { color: var(--muted); font-size: 11px; line-height: 1.7; }
+.notice { border: 1px solid #ffd8b5; background: var(--orange-light); padding: 13px 18px; font-size: 11px; line-height: 1.8; border-radius: 13px; margin-bottom: 24px; color: #84521e; }
+.notice strong { margin-right: 10px; }
+
+/* 4. 분석 흐름과 결과 카드 */
+.section-title { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+h2 { font-size: 19px; letter-spacing: -.5px; margin: 4px 0 8px; }
+h3 { font-size: 15px; margin: 12px 0; }
+h4 { font-size: 12px; margin: 0 0 8px; }
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 16px; }
+.steps article { background: #ebf3ee65; border: 1px solid #c6ddd0; border-radius: 14px; padding: 16px; }
+.steps article:last-child { background: #fff4e888; border-color: #ffd8b5; }
+.steps span { font-size: 10px; font-weight: 800; color: var(--leaf); }
+.steps h3 { font-size: 12px; margin: 9px 0; }
+.steps p { font-size: 10px; line-height: 1.8; color: var(--muted); margin: 0; }
+.report-heading { margin: 32px 0 18px; }
+.report-heading h2 { font-size: 23px; margin-top: 10px; }
+.metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 22px; }
+.metrics article { border: 1px solid var(--line); background: white; padding: 24px; border-radius: 17px; }
+.metrics article:first-child { background: #fff4e888; border-color: #ffd8b5; }
+.metrics article:nth-child(2) { background: #ebf3ee88; border-color: #c6ddd0; }
+.metrics span, .metrics small { display: block; font-size: 11px; color: var(--muted); }
+.metrics strong { display: block; font-size: 27px; margin: 12px 0; color: var(--leaf); }
+.metrics article:first-child strong { color: var(--orange); }
+.report-grid { display: grid; grid-template-columns: 1.25fr 1fr; gap: 22px; align-items: start; }
+.chart { height: 240px; display: flex; align-items: end; gap: 10px; padding: 20px 0 32px; border-bottom: 1px solid var(--line); }
+.bar { flex: 1; min-width: 0; position: relative; min-height: 2px; background: #ffc68f; border-radius: 6px 6px 0 0; }
+.bar.peak { background: var(--orange); }
+.bar span { position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%); font-size: 10px; white-space: nowrap; color: var(--muted); }
+summary { padding: 12px 0; font-size: 12px; font-weight: 600; color: var(--leaf); }
+table { border-collapse: collapse; width: 100%; font-size: 11px; }
+th, td { border-bottom: 1px solid var(--line); text-align: right; padding: 10px 12px; }
+th { background: var(--background); color: var(--muted); }
+th:first-child, td:first-child { text-align: left; }
+#insight { font-size: 14px; line-height: 2; }
+.limitation-box { margin-top: 22px; padding: 18px; background: var(--background); border-radius: 12px; }
+#warnings { padding-left: 17px; margin: 0; font-size: 11px; line-height: 1.9; color: var(--muted); }
+.log-panel { background: #1e2922; color: #e1ebe4; }
+.log-panel summary { color: #d6e5d9; }
+.logs { padding-left: 22px; font-size: 11px; line-height: 2.1; }
+.logs li { margin-bottom: 6px; padding-left: 7px; }
+footer { text-align: center; color: var(--muted); font-size: 10px; margin: 35px 0 12px; }
+
+/* 5. 작은 화면과 인쇄 */
+@media (max-width: 900px) { nav .badge { display: none; } .steps { grid-template-columns: repeat(2, 1fr); } .report-grid { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { main { padding: 20px 14px; } .header-content { padding: 12px 14px; } .brand { font-size: 12px; } .brand small { display: none; } .panel { padding: 20px; border-radius: 19px; } .query-input { flex-direction: column; align-items: stretch; } .filters { grid-template-columns: repeat(2, 1fr); } .filter-footer { align-items: stretch; flex-direction: column; } .metrics { grid-template-columns: 1fr; } .section-title { align-items: start; } .report-heading h2 { font-size: 19px; } .chart { gap: 6px; } }
+@media print { .site-header, .hero, .pipeline, #download { display: none; } main { max-width: none; padding: 0; } .panel, .metrics article { box-shadow: none; break-inside: avoid; } .log-panel { background: white; color: black; } .log-panel summary { color: black; } }

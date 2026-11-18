@@ -14,7 +14,7 @@ SAMPLE_DIR = ROOT / "data" / "sample"
 MONTHLY_FILE = "card_monthly.csv"
 WEEKDAY_FILE = "card_weekday.csv"
 
-MONTHLY_NAME = "월간 내국인관광객 카드 사용 정보"
+MONTHLY_NAME = "내국인 관광객 지역, 업종, 성별, 연령대별 카드 이용 데이터"
 WEEKDAY_NAME = "관광지 및 상업지구 요일별 카드 데이터"
 WEEKDAY_NAMES = ["월", "화", "수", "목", "금", "토", "일"]
 
@@ -39,8 +39,18 @@ WEEKDAY_COLUMNS = {
     "이용횟수": ["이용횟수", "이용 횟수", "이용건수"],
     "이용금액": ["이용금액", "이용 금액"],
 }
+# 제주데이터허브의 요일별 데이터는 일자 대신 월과 요일 단위로 제공된다.
+MONTH_WEEKDAY_COLUMNS = {
+    "기준연월": ["기준연월", "기준년월", "년월", "연월"],
+    "지구": WEEKDAY_COLUMNS["지구"],
+    "요일": WEEKDAY_COLUMNS["요일"],
+    "이용자수": WEEKDAY_COLUMNS["이용자수"],
+    "이용횟수": WEEKDAY_COLUMNS["이용횟수"],
+    "이용금액": WEEKDAY_COLUMNS["이용금액"],
+}
 # 요일별 데이터에는 시군구가 없어 지구가 속한 시군구를 이 표로 연결한다.
 DISTRICT_REGION = {
+    "제주시 구도심": "제주시", "서귀포시 구도심": "서귀포시",
     "중문관광단지": "서귀포시", "성산일출봉": "서귀포시", "서귀포매일올레시장": "서귀포시",
     "표선해변": "서귀포시", "연동상권": "제주시", "함덕해변": "제주시",
     "애월해안": "제주시", "협재해변": "제주시",
@@ -63,6 +73,10 @@ class DataStore:
         return sorted(self.monthly["기준연월"].unique().tolist())
 
     @property
+    def weekday_months(self) -> list[str]:
+        return sorted(self.weekday["기준연월"].unique().tolist())
+
+    @property
     def period(self) -> str:
         return f"{self.months[0]} ~ {self.months[-1]}"
 
@@ -70,7 +84,7 @@ class DataStore:
     def source(self) -> str:
         if self.is_sample:
             return "합성 샘플 데이터 (실제 통계 아님)"
-        return f"제주특별자치도 · {MONTHLY_NAME}, {WEEKDAY_NAME}"
+        return f"제주데이터허브 · {MONTHLY_NAME}, {WEEKDAY_NAME}"
 
     def values(self, column: str) -> list[str]:
         frame = self.weekday if column == "지구" else self.monthly
@@ -152,7 +166,29 @@ def preprocess_monthly(frame: pd.DataFrame, quality: list[str]) -> pd.DataFrame:
     return frame.reset_index(drop=True)
 
 
+def _preprocess_month_weekday(frame: pd.DataFrame, quality: list[str]) -> pd.DataFrame:
+    frame = _standardize(frame, MONTH_WEEKDAY_COLUMNS, "요일별 카드")
+    frame = _clean(frame, ["이용자수", "이용횟수", "이용금액"], "요일별 카드", quality)
+    parsed = pd.to_datetime(frame["기준연월"].str.replace(r"\D", "", regex=True).str[:6], format="%Y%m", errors="coerce")
+    names = frame["요일"].str[:1]
+    valid = parsed.notna() & names.isin(WEEKDAY_NAMES)
+    if int((~valid).sum()):
+        quality.append(f"요일별 카드: 기준연월·요일 형식 오류 {int((~valid).sum()):,}행 제외")
+    frame = frame.loc[valid].copy()
+    if frame.empty:
+        raise DataError("요일별 카드 파일에 올바른 기준연월과 요일이 없습니다.")
+    frame["기준연월"] = parsed[valid].dt.strftime("%Y-%m").astype(str).to_numpy()
+    frame["날짜"] = frame["기준연월"]
+    frame["요일"] = names[valid].astype(str).to_numpy()
+    frame["지구"] = frame["지구"].astype(str)
+    frame["시군구"] = frame["지구"].map(DISTRICT_REGION).fillna("미분류").astype(str)
+    return frame.reset_index(drop=True)
+
+
 def preprocess_weekday(frame: pd.DataFrame, quality: list[str]) -> pd.DataFrame:
+    columns = {str(c).strip() for c in frame.columns}
+    if not columns & set(WEEKDAY_COLUMNS["날짜"]) and columns & set(MONTH_WEEKDAY_COLUMNS["기준연월"]):
+        return _preprocess_month_weekday(frame, quality)
     frame = _standardize(frame, WEEKDAY_COLUMNS, "요일별 카드")
     frame = _clean(frame, ["이용자수", "이용횟수", "이용금액"], "요일별 카드", quality)
     parsed = pd.to_datetime(frame["날짜"].str.replace(r"\D", "", regex=True).str[:8], format="%Y%m%d", errors="coerce")

@@ -185,6 +185,13 @@ def build_limitations(results: list[Result], store: DataStore, notices: list[str
     trend, weekday = _first(results, "trend"), _first(results, "weekday")
     if trend and weekday:
         items.append("요일별 데이터에는 업종·연령·성별이 없어 요일 비중은 해당 지역 전체 소비 기준입니다.")
+        first, last = trend.rows[0]["month"], trend.rows[-1]["month"]
+        if weekday.facts["period"] != f"{first} ~ {last}":
+            items.append(f"월별 분석 기간({first} ~ {last})과 요일별 분석 기간({weekday.facts['period']})이 다릅니다.")
+    if weekday and weekday.spec["region"] and not store.is_sample:
+        items.append(f"{weekday.spec['region']} 요일 비중은 제공되는 지구 중 {weekday.spec['region']} 구도심 기준입니다.")
+    if not store.is_sample:
+        items.append(f"제공 데이터의 수록 기간은 {store.period}이며 최근 소비 동향을 반영하지 않습니다.")
     if any(c["status"] == "warning" for r in results for c in r.checks):
         items.append("일부 결과는 표본이 적어 변동성이 클 수 있습니다.")
     items.append("실행 제안은 소비 패턴에 근거한 참고 자료이며 매출 효과를 보장하지 않습니다.")

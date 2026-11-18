@@ -83,7 +83,8 @@ class Analyzer:
                     f"{FILTER_LABELS[key]} 조건 '{value}'는 데이터에 없습니다. 사용 가능한 값: {', '.join(available)}"
                 )
             cleaned[key] = value
-        cleaned.setdefault("visitor", "관광객" if "관광객" in self.store.values("관광객구분") else self.store.values("관광객구분")[0])
+        visitors = self.store.values("관광객구분")
+        cleaned.setdefault("visitor", next((v for v in visitors if "관광객" in v), visitors[0]))
         return cleaned
 
     def _filtered(self, filters: dict[str, str]) -> pd.DataFrame:
@@ -96,6 +97,11 @@ class Analyzer:
         if not 1 <= int(months) <= 36:
             raise AnalysisError("분석 기간은 1~36개월로 지정해 주세요.")
         return self.store.months[-int(months):]
+
+    def _weekday_window(self, months: int) -> list[str]:
+        """요일별 데이터는 월간 데이터와 수록 기간이 달라 자체 최신 월을 기준으로 삼는다."""
+        self._window(months)
+        return self.store.weekday_months[-int(months):]
 
     def trend(self, filters: dict | None = None, months: int = 12) -> Result:
         """월별 이용금액과 전년 동월 대비 증감률을 계산한다."""
@@ -174,7 +180,7 @@ class Analyzer:
 
     def weekday(self, district: str | None = None, region: str | None = None, months: int = 12) -> Result:
         """지구 또는 시군구의 요일별 이용금액 비중을 계산한다."""
-        window = self._window(months)
+        window = self._weekday_window(months)
         frame = self.store.weekday[self.store.weekday["기준연월"].isin(window)]
         if district:
             if district not in self.store.values("지구"):
@@ -202,7 +208,8 @@ class Analyzer:
                  "top_days": [r["weekday"] for r in ordered[:2]],
                  "top_days_share": round(ordered[0]["share"] + ordered[1]["share"], 1),
                  "low_day": ordered[-1]["weekday"], "low_share": ordered[-1]["share"],
-                 "weekend_share": share(weekend, total), "weekday_share": share(total - weekend, total)}
+                 "weekend_share": share(weekend, total), "weekday_share": share(total - weekend, total),
+                 "period": f"{window[0]} ~ {window[-1]}"}
         spec = {"district": district, "region": None if district else region, "months": int(months)}
         return self._save("weekday", spec, rows, facts)
 
@@ -255,7 +262,7 @@ class Analyzer:
     def _recompute_weekday(self, result: Result):
         totals: dict[str, float] = defaultdict(float)
         matched, users = 0, 0.0
-        months = set(self._window(result.spec["months"]))
+        months = set(self._weekday_window(result.spec["months"]))
         district, region = result.spec["district"], result.spec["region"]
         for row in self.store.weekday.to_dict("records"):
             if row["기준연월"] not in months or (district and row["지구"] != district):

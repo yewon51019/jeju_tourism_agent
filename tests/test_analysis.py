@@ -127,7 +127,12 @@ def test_weekday_invalid_district_and_empty_window(analyzer):
     with pytest.raises(AnalysisError, match="unknown"):
         analyzer.weekday(district="unknown", months=2)
     with pytest.raises(AnalysisError, match="요일별 데이터가 없습니다"):
-        analyzer.weekday(region="제주시", months=1)
+        analyzer.weekday(region="없는지역", months=1)
+
+
+def test_weekday_uses_its_own_latest_months(analyzer):
+    # The weekday dataset ends earlier than the monthly dataset in the hub data.
+    assert analyzer.weekday(region="제주시", months=1).facts["period"] == "2024-01 ~ 2024-01"
 
 
 def test_weekday_zero_transaction_count(analyzer):

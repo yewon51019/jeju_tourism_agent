@@ -1,0 +1,13 @@
+<style>
+/* 참고 HTML의 크림·감귤·귤잎 색상을 Streamlit의 기본 위젯에 적용합니다. */
+.block-container { max-width: 1160px; padding-top: 2rem; }
+[data-testid="stSidebar"] { background: #f1eee7; border-right: 1px solid #e5e0d8; }
+.hero { text-align: center; padding: 32px 24px; margin-bottom: 22px; background: radial-gradient(ellipse at top right, #fff4e8, transparent 55%), white; border: 1px solid #eae5dc; border-radius: 24px; }
+.hero h1 { font-size: clamp(26px, 3vw, 38px); line-height: 1.5; letter-spacing: -1.3px; margin: 18px 0 12px; }
+.hero h1 em { color: #ff7a00; font-style: normal; }
+.hero p { color: #5c6660; font-size: 14px; line-height: 1.8; }
+.pill { background: #ebf3ee; color: #2d5a3c; border: 1px solid #c6ddd0; border-radius: 30px; padding: 7px 13px; font-size: 12px; font-weight: 650; }
+[data-testid="stButton"] button, [data-testid="stDownloadButton"] button { border-radius: 12px; }
+[data-testid="stTextArea"] textarea { border-radius: 14px; background: #fff; line-height: 1.8; }
+[data-testid="stExpander"], [data-testid="stDataFrame"] { border-radius: 16px; }
+</style>
