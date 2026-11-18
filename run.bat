@@ -1,6 +1,13 @@
 @echo off
 chcp 65001 >nul
 cd /d "%~dp0"
+set "FOLDER=%~dp0"
+if not "%FOLDER:~80%"=="" (
+  echo The folder path is too long for package installation.
+  echo Move this folder to a short path such as C:\jeju_tourism_agent and run this file again.
+  pause
+  exit /b 1
+)
 set "CHECK=import sys; sys.exit(0 if sys.version_info >= (3, 12) else 1)"
 
 if exist ".venv\Scripts\python.exe" (
