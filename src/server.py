@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from .agent import DEFAULT_MODEL, llm_available, run_agent
 from .data_pipeline import DataError, DataStore, load_store
 from .events import error
+from .hub_api import ensure_hub_data
 from .settings import KeyRejected, delete_key, save_key
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -30,6 +31,7 @@ app = FastAPI(title="제주 관광 소비 인사이트 Agent")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 _store: DataStore | None = None
 _store_error: str | None = None
+_data_notice: str | None = None
 _lock = threading.Lock()
 
 
@@ -83,6 +85,7 @@ def status() -> dict:
     return {
         "ready": True, "llm": llm_available(), "model": os.getenv("ANTHROPIC_MODEL", DEFAULT_MODEL),
         "source": store.source, "period": store.period, "isSample": store.is_sample, "quality": store.quality,
+        "dataNotice": _data_notice,
     }
 
 
@@ -117,6 +120,10 @@ def analyze(request: AnalyzeRequest) -> StreamingResponse:
 
 
 def main() -> None:
+    global _data_notice
+    _data_notice = ensure_hub_data()
+    if _data_notice:
+        print(_data_notice, flush=True)
     port = int(os.getenv("PORT", "8501"))
     if os.getenv("OPEN_BROWSER", "1") == "1":
         threading.Timer(1.2, lambda: webbrowser.open(f"http://127.0.0.1:{port}")).start()

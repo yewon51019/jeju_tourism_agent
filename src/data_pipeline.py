@@ -140,6 +140,8 @@ def _clean(frame: pd.DataFrame, numeric: list[str], name: str, quality: list[str
 
 def _normalize_age(value: str) -> str:
     text = str(value).strip()
+    if text.replace(" ", "") in ("20미만", "20대미만"):  # 허브 원본에 두 가지 표기가 섞여 있다.
+        return "20대 미만"
     return f"{text}대" if text.isdigit() else text
 
 

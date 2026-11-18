@@ -15,14 +15,28 @@
 
 ## 2. API 키 설정
 
+API 키는 프로젝트 폴더의 `.env` 파일 한 곳에만 입력합니다. 소스 코드는 수정하지 않습니다. `.env`는 `run.bat`을 처음 실행할 때 `.env.example`을 복사해 자동으로 만들어집니다.
+
+| 키 | 입력할 파일 | 입력할 줄 | 키를 읽는 코드 |
+| --- | --- | --- | --- |
+| Claude API 키 | `.env` | `ANTHROPIC_API_KEY=발급받은 키` | `src/agent.py`의 `ClaudeAgent` |
+| 제주데이터허브 프로젝트 키 | `.env` | `JEJU_HUB_PROJECT_KEY=발급받은 키` | `src/hub_api.py`의 `ensure_hub_data` |
+
 ### 2.1 Claude API 키 (외부 AI API)
 
-1. 화면 오른쪽 위 `API 키 입력`을 누릅니다.
-2. `EVALUATION_KEY.md`의 평가용 키 또는 본인의 키를 입력하고 `확인 후 저장`을 누릅니다.
-3. 상단 표시가 `Claude 사용`으로 바뀌면 완료입니다.
+평가 시에는 `EVALUATION_KEY.md`의 평가용 키를 사용합니다. 직접 발급하는 순서는 다음과 같습니다.
 
-- 키는 실행 PC의 프로젝트 폴더에 있는 `.env` 파일에만 저장되고 화면에 다시 표시되지 않습니다.
-- `.env` 파일을 직접 만들 때는 `.env.example`을 복사해 `ANTHROPIC_API_KEY` 값을 입력합니다.
+1. [Claude Console](https://platform.claude.com)에 가입하고 로그인합니다.
+2. 결제 수단과 크레딧을 등록하고, 사용 한도를 설정합니다.
+3. `API Keys` 메뉴에서 새 키를 만들고 `sk-ant-`로 시작하는 값을 복사합니다.
+
+키는 다음 두 방법 중 하나로 입력합니다.
+
+- **화면 입력:** 화면 오른쪽 위 `API 키 입력`을 누르고 키를 붙여넣은 뒤 `확인 후 저장`을 누릅니다. 키가 `.env`에 자동으로 저장됩니다.
+- **파일 입력:** `.env`를 메모장으로 열어 `ANTHROPIC_API_KEY=` 뒤에 키를 붙여넣고 저장한 다음 `run.bat`을 다시 실행합니다.
+
+상단 표시가 `Claude 사용`으로 바뀌면 키가 설정된 것입니다. 예시 질문을 실행한 뒤 보고서의 실행 모드가 `Claude Agent`로 표시되면 Claude API 호출이 정상입니다. `규칙 기반 분석`으로 표시되면 키와 사용 한도를 확인합니다. 저장된 키는 화면에 다시 표시되지 않습니다.
+
 - 평가용 키는 참가자가 준비했으며 사용 한도가 설정되어 있습니다. 평가 중 발생하는 API 비용은 참가자가 부담합니다.
 - 평가용 키는 평가 기간 종료 후 삭제·폐기합니다.
 
@@ -36,8 +50,22 @@
    - [내국인 관광객 지역, 업종, 성별, 연령대별 카드 이용 데이터](https://jejudatahub.net/data/view/data/597)
    - [관광지 및 상업지구 요일별 카드 데이터](https://jejudatahub.net/data/view/data/608)
 4. `마이페이지 > 프로젝트 관리 > 해당 프로젝트`에서 프로젝트 키를 복사합니다.
-5. `download_data.bat`을 실행하고 프로젝트 키를 붙여넣은 뒤 Enter를 누릅니다. 입력한 키는 화면에 표시되지 않습니다.
-6. `data/raw/`에 `card_monthly.csv`, `card_weekday.csv`가 생기면 `run.bat`을 다시 실행합니다.
+5. `.env`를 메모장으로 열어 `JEJU_HUB_PROJECT_KEY=` 뒤에 프로젝트 키를 붙여넣고 저장합니다.
+6. `run.bat`을 실행합니다. `data/raw/`에 데이터가 없으면 앱이 시작할 때 Open API를 호출해 `card_monthly.csv`, `card_weekday.csv`를 자동으로 저장합니다.
+7. 화면 상단의 데이터 표시가 `실제 데이터`로 바뀌면 완료입니다.
+
+`data/raw/`에 두 CSV가 이미 있으면 시작할 때 API를 다시 호출하지 않고 저장된 파일을 사용합니다. 데이터를 새로 받으려면 `download_data.bat`을 실행합니다.
+
+### 2.3 API 호출 코드 위치
+
+| 기능 | 파일 | 함수 |
+| --- | --- | --- |
+| 사용자 문장을 Claude에 보내 JSON 형식으로 해석 | `src/agent.py` | `ClaudeAgent._interpret` |
+| 응답 JSON 형식 정의와 검증 | `src/interpreter.py` | `interpretation_schema`, `parse_interpretation` |
+| Claude의 도구 호출과 분석 진행 | `src/agent.py` | `ClaudeAgent._create`, `ClaudeAgent.run` |
+| 보고서 형식과 수치 검증 | `src/agent.py`, `src/interpreter.py` | `_reject_report`, `ReportDraft` |
+| 제주데이터허브 Open API 호출 | `src/hub_api.py` | `fetch_all`, `download`, `ensure_hub_data` |
+| 프롬프트 | `src/prompts.py` | `INTERPRET_PROMPT`, `SYSTEM_PROMPT` |
 
 ## 3. 사용 방법
 
@@ -64,7 +92,8 @@
 | 패키지 설치 실패 | 인터넷 연결 문제 | 연결 확인 후 다시 실행 |
 | API 키 형식 또는 인증 오류 | 잘못되었거나 폐기된 키 | 키를 다시 확인 |
 | 규칙 기반 분석으로 전환됨 | 키 없음, 사용 한도 초과, API 장애 | 키와 인터넷 연결 확인 |
-| 프로젝트 키를 확인하라는 안내 | 키 오류 또는 프로젝트 담기 누락 | 2.2절의 3~4번 다시 확인 |
+| 프로젝트 키를 확인하라는 안내 | 키 오류 또는 프로젝트 담기 누락 | 안내에 표시된 데이터 번호(597번, 608번)를 2.2절의 3~4번에 따라 다시 확인 |
+| 합성 샘플로 실행된다는 안내 | 프로젝트 키 미입력 또는 다운로드 실패 | `.env`의 `JEJU_HUB_PROJECT_KEY` 확인 후 `run.bat` 다시 실행 |
 | 일일 호출 한도 초과 | 데이터별 일일 1,000회 초과 | 다음 날 다시 실행 |
 | 필수 컬럼이 없다는 오류 | CSV 형식이 다름 | `download_data.bat`으로 다시 다운로드 |
 

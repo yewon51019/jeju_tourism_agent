@@ -36,6 +36,7 @@
 | Uvicorn | 0.54.0 | BSD-3-Clause | 웹 서버 실행 |
 | pandas | 3.1.1 | BSD-3-Clause | 데이터 처리 |
 | NumPy | 2.5.5 | BSD-3-Clause 등 | 수치 계산 |
+| Pydantic | 2.14.3 | MIT | 질문 해석·보고서 형식 검증 |
 | python-dotenv | 1.2.4 | BSD-3-Clause | 환경변수 관리 |
 | HTTPX | 0.28.1 | BSD-3-Clause | 데이터 API 호출, 테스트 |
 | pytest | 9.2.0 | MIT | 테스트 |

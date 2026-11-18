@@ -133,7 +133,7 @@ def parse_question(question: str, answers: dict[str, str] | None, store: DataSto
 
     span = re.search(r"최근\s*(\d+)\s*(개월|달|년)", q)
     if span:
-        parsed.months = min(36, int(span.group(1)) * (12 if span.group(2) == "년" else 1))
+        parsed.months = max(1, min(36, int(span.group(1)) * (12 if span.group(2) == "년" else 1)))
 
     needs_grain = any(k in filters for k in ("age", "gender", "theme", "industry"))
     if parsed.district and "region" not in filters:
@@ -230,9 +230,14 @@ def narrate(parsed: Parsed, results: list[Result]) -> tuple[str, str, list[dict[
     if rank and parsed.intent == "growth":
         f = rank.facts
         title = f"최근 {parsed.months}개월 {f['dimension']}별 소비 증가율 분석"
-        sentences.append(f"전년 동기 대비 증가율이 가장 높은 {f['dimension']}는 **{f['top_name']}({signed(f['top_yoy'])})**이고, "
-                         f"가장 낮은 {f['dimension']}는 {f['bottom_name']}({signed(f['bottom_yoy'])})입니다.")
-        actions.append({"badge": "성장 분야", "title": f"{f['top_name']} 연계 상품 검토",
+        all_down = f["top_yoy"] < 0
+        if all_down:
+            sentences.append(f"전년 비교가 가능한 모든 {f['dimension']}의 소비가 전년 동기보다 감소했으며, 감소폭이 가장 작은 {f['dimension']}는 "
+                             f"**{f['top_name']}({signed(f['top_yoy'])})**이고, 가장 큰 {f['dimension']}는 {f['bottom_name']}({signed(f['bottom_yoy'])})입니다.")
+        else:
+            sentences.append(f"전년 동기 대비 증가율이 가장 높은 {f['dimension']}는 **{f['top_name']}({signed(f['top_yoy'])})**이고, "
+                             f"가장 낮은 {f['dimension']}는 {f['bottom_name']}({signed(f['bottom_yoy'])})입니다.")
+        actions.append({"badge": "상대적 강세" if all_down else "성장 분야", "title": f"{f['top_name']} 연계 상품 검토",
                         "desc": f"{f['top_name']}의 이용금액이 전년 동기보다 {signed(f['top_yoy'])} 변했습니다. 기존 상품과 결합할 수 있는지 검토하세요."})
         actions.append({"badge": "위험 점검", "title": f"{f['bottom_name']} 수요 변화 점검",
                         "desc": f"{f['bottom_name']}의 전년 대비 증감률은 {signed(f['bottom_yoy'])}입니다. 관련 사업자는 상품 구성과 판매 경로를 점검하세요."})

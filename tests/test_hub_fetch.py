@@ -8,7 +8,8 @@ from pathlib import Path
 import httpx
 import pytest
 
-from src.data_pipeline import load_store
+from src import hub_api
+from src.data_pipeline import _normalize_age, load_store
 from src.rule_engine import run_rules
 
 SPEC = importlib.util.spec_from_file_location("fetch_hub_data", Path(__file__).parent.parent / "scripts" / "fetch_hub_data.py")
@@ -100,6 +101,63 @@ def test_failed_download_keeps_existing_files_and_hides_the_key(tmp_path):
     with pytest.raises(hub.HubError) as error:
         hub.download(PROJECT_KEY, tmp_path, transport(status=403), delay=0)
     assert PROJECT_KEY not in str(error.value) and existing.read_text(encoding="utf-8") == "old"
+
+
+def test_app_start_downloads_data_when_project_key_is_set(tmp_path, monkeypatch):
+    monkeypatch.setenv(hub_api.KEY_NAME, PROJECT_KEY)
+    assert hub_api.ensure_hub_data(tmp_path, transport(), delay=0) is None
+    assert not load_store(tmp_path, tmp_path / "unused").is_sample
+
+
+def test_app_start_skips_download_without_key_or_with_existing_data(tmp_path, monkeypatch):
+    monkeypatch.delenv(hub_api.KEY_NAME, raising=False)
+    assert hub_api.ensure_hub_data(tmp_path, transport(status=500), delay=0) is None
+    assert not (tmp_path / "card_monthly.csv").exists()
+    monkeypatch.setenv(hub_api.KEY_NAME, PROJECT_KEY)
+    hub.download(PROJECT_KEY, tmp_path, transport(), delay=0)
+    assert hub_api.ensure_hub_data(tmp_path, transport(status=403), delay=0) is None
+
+
+def test_app_start_reports_failure_without_the_key(tmp_path, monkeypatch):
+    monkeypatch.setenv(hub_api.KEY_NAME, PROJECT_KEY)
+    message = hub_api.ensure_hub_data(tmp_path, transport(status=403), delay=0)
+    assert "프로젝트 키를 확인" in message and PROJECT_KEY not in message
+
+
+@pytest.mark.parametrize("value", ["20 미만", "20대미만"])
+def test_under_twenty_labels_are_merged(value):
+    assert _normalize_age(value) == "20대 미만"
+
+
+def test_missing_dataset_permission_stops_before_full_download(tmp_path):
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        if hub.WEEKDAY["key"] in request.url.path:
+            return httpx.Response(403)
+        return httpx.Response(200, json={"totCnt": 1, "hasMore": False, "data": monthly_data()[:1]})
+
+    with pytest.raises(hub.HubError, match="608번"):
+        hub.download(PROJECT_KEY, tmp_path, httpx.MockTransport(handler), delay=0)
+    assert len(calls) == 2
+
+
+def test_empty_page_with_more_rows_stops_collection(tmp_path):
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"totCnt": 5, "hasMore": True, "data": []})
+
+    with pytest.raises(hub.HubError, match="빈 페이지"):
+        hub.download(PROJECT_KEY, tmp_path, httpx.MockTransport(handler), delay=0)
+
+
+def test_malformed_rows_do_not_stop_the_app_from_starting(tmp_path, monkeypatch):
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"totCnt": 1, "hasMore": False, "data": [{"unexpected": 1}]})
+
+    monkeypatch.setenv(hub_api.KEY_NAME, PROJECT_KEY)
+    message = hub_api.ensure_hub_data(tmp_path, httpx.MockTransport(handler), delay=0)
+    assert "저장하지 못했습니다" in message and PROJECT_KEY not in message
 
 
 def test_row_count_mismatch_is_rejected(tmp_path):

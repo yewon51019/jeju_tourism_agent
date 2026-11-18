@@ -6,12 +6,14 @@ import os
 from typing import Any, Iterator
 
 import anthropic
+from pydantic import ValidationError
 
 from .data_pipeline import DataStore
 from .events import clarify, error, notice, report, step
-from .prompts import SYSTEM_PROMPT
+from .interpreter import Interpretation, ReportDraft, interpretation_schema, parse_interpretation
+from .prompts import INTERPRET_PROMPT, SYSTEM_PROMPT
 from .report import build_payload, unsupported_numbers
-from .rule_engine import run_rules
+from .rule_engine import clarification_fields, run_rules
 from .tools.analysis import AnalysisError
 from .tools.registry import TOOLS, ToolBox
 
@@ -27,6 +29,11 @@ class AgentError(RuntimeError):
 
 def _reject_report(args: dict[str, Any], box: ToolBox) -> str | None:
     """보고서를 거부할 이유를 돌려준다. 문제가 없으면 None을 돌려준다."""
+    try:
+        ReportDraft.model_validate(args)
+    except ValidationError as exc:
+        fields = ", ".join(sorted({str(item["loc"][0]) for item in exc.errors() if item["loc"]}))
+        return f"보고서 형식이 올바르지 않습니다: {fields}. 도구 정의에 맞게 다시 제출해 주세요."
     try:
         results = [box.analyzer.get(i) for i in args["result_ids"]]
     except AnalysisError as exc:
@@ -48,6 +55,25 @@ class ClaudeAgent:
         self.client = client or anthropic.Anthropic()
         self.model = model or os.getenv("ANTHROPIC_MODEL", DEFAULT_MODEL)
 
+    def _interpret(self, question: str, answers: dict[str, str] | None) -> Interpretation:
+        """사용자 문장을 Claude에 보내 정해진 JSON 형식의 분석 조건으로 받는다."""
+        response = self.client.beta.messages.create(
+            model=self.model,
+            max_tokens=4000,
+            betas=[FALLBACK_BETA],
+            fallbacks="default",
+            output_config={"effort": "low", "format": {"type": "json_schema", "schema": interpretation_schema(self.store)}},
+            system=INTERPRET_PROMPT,
+            messages=[{"role": "user", "content": question}],
+        )
+        if response.stop_reason in ("refusal", "max_tokens"):
+            raise AgentError("질문 해석 응답을 완성하지 못했습니다.")
+        text = "".join(block.text for block in response.content if block.type == "text")
+        try:
+            return parse_interpretation(text, self.store, answers)
+        except ValueError as exc:
+            raise AgentError("질문 해석 결과가 정해진 형식과 다릅니다.") from exc
+
     def _create(self, messages: list[dict[str, Any]]) -> Any:
         return self.client.beta.messages.create(
             model=self.model,
@@ -62,10 +88,18 @@ class ClaudeAgent:
 
     def run(self, question: str, answers: dict[str, str] | None = None) -> Iterator[dict[str, Any]]:
         box = ToolBox(self.store)
-        text = question if not answers else f"{question}\n\n사용자가 선택한 조건: {json.dumps(answers, ensure_ascii=False)}"
+        yield step(1, "running", "Claude가 질문의 의도와 조건을 해석하고 있습니다.")
+        parsed = self._interpret(question, answers)
+        conditions = parsed.model_dump(exclude={"needs_clarification", "clarification_question", "missing_fields"}, exclude_none=True)
+        box.calls.append(f"interpret_question({json.dumps(conditions, ensure_ascii=False)})")
+        if parsed.needs_clarification:
+            fields = [f for f in clarification_fields(self.store) if f["key"] in parsed.missing_fields]
+            if fields:
+                yield clarify(parsed.clarification_question or "분석 조건을 선택해 주세요.", fields)
+                return
+        text = f"{question}\n\n구조화된 질문 해석 결과: {json.dumps(conditions, ensure_ascii=False)}"
         messages: list[dict[str, Any]] = [{"role": "user", "content": text}]
         stage, nudged = 1, False
-        yield step(1, "running", "Claude가 질문의 의도와 조건을 해석하고 있습니다.")
 
         for _ in range(MAX_TURNS):
             response = self._create(messages)
@@ -88,6 +122,8 @@ class ClaudeAgent:
             tool_results = []
             for block in tool_uses:
                 args = block.input if isinstance(block.input, dict) else {}
+                if block.name in ANALYSIS_TOOLS and parsed.months and "months" not in args:
+                    args = {**args, "months": parsed.months}  # 사용자가 말한 기간이 기본값으로 바뀌지 않게 한다.
                 if block.name == "ask_user":
                     yield clarify(args.get("question", "분석 조건을 선택해 주세요."), args.get("fields", []))
                     return

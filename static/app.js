@@ -414,6 +414,7 @@ async function loadStatus() {
       document.querySelector('#sampleBanner p').textContent = '공개 데모입니다. 합성 샘플 데이터로 미리 계산한 예시 질문만 제공하며, 화면의 수치는 실제 제주 관광 통계가 아닙니다.';
     }
     $('qualityBox').innerHTML = status.quality.map((q) => `<p>${escapeHtml(q)}</p>`).join('');
+    if (status.dataNotice) showToast(status.dataNotice, 'warning');
   } catch {
     showToast('서버 상태를 확인할 수 없습니다.', 'warning');
   }

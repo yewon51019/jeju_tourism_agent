@@ -8,8 +8,16 @@
 2. ZIP을 `C:\jeju_tourism_agent`처럼 경로가 짧은 폴더에 풀고 `run.bat`을 더블클릭합니다. 첫 실행 때 필요한 패키지를 자동으로 설치합니다.
 3. 브라우저에서 `http://127.0.0.1:8501`이 열리면 예시 질문을 누릅니다.
 4. Claude로 실행하려면 화면 오른쪽 위 `API 키 입력`에 `EVALUATION_KEY.md`의 평가용 키를 입력합니다.
+5. 제주데이터허브 데이터를 직접 받으려면 `.env`의 `JEJU_HUB_PROJECT_KEY=` 뒤에 프로젝트 키를 입력하고 `run.bat`을 다시 실행합니다. `data/raw/`에 CSV가 이미 있으면 `download_data.bat`으로 새로 받습니다.
 
-API 키가 없으면 규칙 기반 분석으로 실행됩니다. `data/raw/`에 데이터가 없으면 합성 샘플 데이터로 실행되며 화면에 그 사실을 표시합니다.
+API 키가 없으면 규칙 기반 분석으로 실행됩니다. `data/raw/`에 데이터가 없고 프로젝트 키도 없으면 합성 샘플 데이터로 실행되며 화면에 그 사실을 표시합니다.
+
+## 처리 흐름
+
+1. 사용자의 문장을 Claude API로 보내 지역, 업종, 고객층, 기간, 분석 유형을 정해진 JSON 형식으로 받습니다.
+2. 받은 JSON을 코드로 검증하고, 조건이 부족하면 사용자에게 선택지를 제시합니다.
+3. Claude가 분석 도구를 선택하면 Python 코드가 제주데이터허브 데이터를 집계하고 원본으로 재계산해 검증합니다.
+4. Claude가 정해진 보고서 형식으로 결과를 제출하면, 코드가 형식과 수치 근거를 확인한 뒤 화면에 표시합니다.
 
 ## 제출물 구성
 
@@ -17,7 +25,10 @@ API 키가 없으면 규칙 기반 분석으로 실행됩니다. `data/raw/`에 
 | --- | --- |
 | 실행 소스 코드 | `src/`, `static/`, `scripts/` |
 | Prompt | `src/prompts.py` |
-| Tool/API 연동 | `src/tools/`, `src/agent.py`, `scripts/fetch_hub_data.py` |
+| 생성형 AI API 호출, 응답 형식 검증 | `src/agent.py`, `src/interpreter.py` |
+| 제주데이터허브 API 호출 | `src/hub_api.py`, `scripts/fetch_hub_data.py` |
+| 분석 Tool | `src/tools/` |
+| API 키 입력 위치 | `.env` (`.env.example` 참고, 발급 방법은 `docs/user_manual.md` 2절) |
 | 의존성 목록 | `requirements.txt` |
 | 환경변수 예시 | `.env.example` |
 | 사용자 매뉴얼, 오류·제약사항 | `docs/user_manual.md` |
@@ -35,7 +46,7 @@ API 키가 없으면 규칙 기반 분석으로 실행됩니다. `data/raw/`에 
 | Anthropic Claude API | 질문 해석, 분석 계획, 보고서 문장 작성 | Claude API 키 | 평가 중 비용은 참가자 부담 |
 | 제주데이터허브 Open API | 카드 소비 데이터 수집 | 프로젝트 키 | 무료, 데이터별 일일 1,000회 |
 
-제주데이터허브 프로젝트 키는 제출물에 포함하지 않았습니다. 발급과 설정 방법은 `docs/user_manual.md`에 있습니다.
+제주데이터허브 프로젝트 키는 제출물에 포함하지 않았습니다. 발급 방법과 입력 위치는 `docs/user_manual.md` 2.2절에 있습니다.
 
 ## 테스트
 

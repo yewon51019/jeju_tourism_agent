@@ -31,7 +31,7 @@ FILES = [".env.example", "run.bat", "download_data.bat", "pytest.ini", "docs/use
 TREES = {"src": "*.py", "static": "*"}
 EXCLUDED_DIRS = {"jeju_agent", "__pycache__"}
 SECRET = re.compile(r"sk-ant-[A-Za-z0-9_\-]{20,}|ghp_[A-Za-z0-9]{30,}|AIza[0-9A-Za-z_\-]{30,}")
-TEXT_SUFFIXES = {".py", ".md", ".txt", ".bat", ".ini", ".html", ".css", ".csv", ".example", ".json"}
+TEXT_SUFFIXES = {".py", ".md", ".txt", ".bat", ".ini", ".html", ".css", ".csv", ".example", ".json", ".js", ".mjs"}
 
 
 def evaluation_key_doc() -> tuple[str, bool]:
@@ -47,6 +47,7 @@ def evaluation_key_doc() -> tuple[str, bool]:
             "1. `run.bat`을 실행합니다.\n"
             "2. 화면 오른쪽 위 `API 키 입력`을 누릅니다.\n"
             "3. 위 키를 붙여넣고 `확인 후 저장`을 누릅니다.\n\n"
+            "화면 대신 프로젝트 폴더의 `.env` 파일에서 `ANTHROPIC_API_KEY=` 뒤에 키를 입력해도 됩니다.\n\n"
             "## 안내\n\n"
             "- 이 키는 평가 전용이며 사용 한도가 설정되어 있습니다.\n"
             "- 평가 중 발생하는 API 비용은 참가자가 부담합니다.\n"
@@ -65,8 +66,9 @@ def result_report(store, evaluation: str) -> str:
              "본 Agent는 자연어 질문만으로 소비 시기, 고객층, 지역, 업종을 분석하고 근거가 있는 보고서를 제공합니다.", "",
              "## 2. Agent 구조", "",
              "| 단계 | 담당 | 내용 |", "| --- | --- | --- |",
-             "| 질문 해석 | Claude | 지역, 업종, 고객층, 기간, 분석 목적 해석 |",
+             "| 질문 해석 | Claude + Python | 지역, 업종, 고객층, 기간, 분석 유형을 정해진 JSON 형식으로 받아 코드로 검증 |",
              "| 조건 확인 | Claude | 조건이 모호하면 사용자에게 선택지 제시 |",
+             "| 데이터 수집 | Python | 프로젝트 키가 있으면 제주데이터허브 Open API를 호출해 데이터 저장 |",
              "| 분석 계획 | Claude | 데이터와 도구 선택 |",
              "| 집계·분석 | Python | 추세, 순위, 비중, 증감률, 요일 패턴 계산 |",
              "| 결과 검증 | Python | 원본 재계산, 조건 일치, 비중 합계, 표본 크기 점검 |",

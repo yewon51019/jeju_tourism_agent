@@ -50,6 +50,8 @@ if errorlevel 1 (
   exit /b 1
 )
 
+if not exist ".env" copy ".env.example" ".env" >nul
+
 echo Starting the app at http://127.0.0.1:8501
 ".venv\Scripts\python.exe" -m src.server
 pause

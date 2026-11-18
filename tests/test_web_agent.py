@@ -11,8 +11,9 @@ from fastapi.testclient import TestClient
 from src import server, settings
 from src.agent import ClaudeAgent, run_agent
 from src.data_pipeline import load_store
+from src.interpreter import parse_interpretation
 from src.report import unsupported_numbers
-from src.rule_engine import parse_question
+from src.rule_engine import narrate, parse_question
 from src.tools.analysis import Analyzer
 
 GOOD_KEY = "sk-ant-api03-" + "a" * 40
@@ -42,6 +43,14 @@ class FakeClient:
         return next(self.replies)
 
 
+def interpreted(**changes):
+    values = {"analysis_type": "trend", "purpose": "소비 추세 확인", "region": None, "theme": None, "industry": None, "age": None,
+              "gender": None, "visitor": None, "district": None, "months": None, "needs_clarification": False,
+              "clarification_question": None, "missing_fields": []}
+    text = json.dumps({**values, **changes}, ensure_ascii=False)
+    return reply(SimpleNamespace(type="text", text=text), stop="end_turn")
+
+
 def report_args(summary):
     actions = [{"badge": "제안", "title": f"제안 {i}", "desc": "분석 결과를 참고해 검토하세요."} for i in range(4)]
     return {"title": "테스트", "summary": summary, "intent": "추세", "result_ids": ["r1"], "actions": actions}
@@ -50,6 +59,7 @@ def report_args(summary):
 def test_agent_rejects_invented_number_then_accepts_verified_report(store):
     facts = Analyzer(store).trend({"region": "서귀포시"}).facts
     client = FakeClient([
+        interpreted(region="서귀포시"),
         reply(tool("analyze_trend", {"filters": {"region": "서귀포시"}}, "t1")),
         reply(tool("verify_result", {"result_id": "r1"}, "t2")),
         reply(tool("build_report", report_args("최고 달의 비중은 **99.9%**입니다."), "t3")),
@@ -57,12 +67,13 @@ def test_agent_rejects_invented_number_then_accepts_verified_report(store):
     ])
     events = list(ClaudeAgent(store, client=client).run("서귀포시 소비 추세"))
     assert events[-1]["type"] == "report"
-    rejected = client.requests[3]["messages"][-1]["content"][0]
+    rejected = client.requests[4]["messages"][-1]["content"][0]
     assert rejected["is_error"] is True and "99.9%" in rejected["content"]
 
 
 def test_agent_refuses_report_before_verification(store):
     client = FakeClient([
+        interpreted(),
         reply(tool("analyze_trend", {}, "t1")),
         reply(tool("build_report", report_args("요약입니다."), "t2")),
         reply(tool("verify_result", {"result_id": "r1"}, "t3")),
@@ -70,14 +81,103 @@ def test_agent_refuses_report_before_verification(store):
     ])
     events = list(ClaudeAgent(store, client=client).run("제주 소비 추세"))
     assert events[-1]["type"] == "report"
-    assert client.requests[2]["messages"][-1]["content"][0]["is_error"] is True
+    assert client.requests[3]["messages"][-1]["content"][0]["is_error"] is True
 
 
 def test_agent_clarification_stops_the_loop(store):
     fields = [{"key": "region", "label": "지역", "options": ["제주시", "서귀포시"]}]
-    client = FakeClient([reply(tool("ask_user", {"question": "어느 지역인가요?", "fields": fields}, "t1"))])
+    client = FakeClient([interpreted(), reply(tool("ask_user", {"question": "어느 지역인가요?", "fields": fields}, "t1"))])
     events = list(ClaudeAgent(store, client=client).run("장사 잘 되는 곳"))
-    assert events[-1]["type"] == "clarify" and len(client.requests) == 1
+    assert events[-1]["type"] == "clarify" and len(client.requests) == 2
+
+
+def test_question_is_requested_as_json_and_passed_to_the_agent(store):
+    client = FakeClient([interpreted(region="제주시", months=12), reply(tool("ask_user", {"question": "확인", "fields": []}, "t1"))])
+    list(ClaudeAgent(store, client=client).run("제주시 최근 1년 소비 추세"))
+    schema = client.requests[0]["output_config"]["format"]["schema"]
+    assert client.requests[0]["output_config"]["format"]["type"] == "json_schema" and schema["additionalProperties"] is False
+    assert set(schema["required"]) == set(schema["properties"])
+    assert "제주시" in schema["properties"]["region"]["anyOf"][0]["enum"]
+    assert '"region": "제주시"' in client.requests[1]["messages"][0]["content"]
+
+
+def test_interpreter_can_ask_for_missing_conditions(store):
+    client = FakeClient([interpreted(needs_clarification=True, clarification_question="어느 지역인가요?", missing_fields=["region"])])
+    event = list(ClaudeAgent(store, client=client).run("장사 잘 되는 곳"))[-1]
+    assert event["type"] == "clarify" and [f["key"] for f in event["fields"]] == ["region"] and len(client.requests) == 1
+
+
+def test_selected_answers_override_interpretation(store):
+    text = interpreted(region="제주시", needs_clarification=True, missing_fields=["age"]).content[0].text
+    parsed = parse_interpretation(text, store, {"region": "전체", "age": store.values("연령대")[0]})
+    assert parsed.region is None and parsed.age == store.values("연령대")[0] and parsed.needs_clarification is False
+
+
+def test_values_outside_the_data_are_removed(store):
+    parsed = parse_interpretation(interpreted(region="부산시", months=99).content[0].text, store)
+    assert parsed.region is None and parsed.months == 36
+
+
+def test_partial_answers_keep_the_remaining_question(store):
+    text = interpreted(needs_clarification=True, clarification_question="조건 선택", missing_fields=["region", "age"]).content[0].text
+    parsed = parse_interpretation(text, store, {"region": "제주시"})
+    assert parsed.needs_clarification is True and parsed.missing_fields == ["age"]
+    invalid = parse_interpretation(text, store, {"region": "부산시"})
+    assert invalid.region is None and invalid.missing_fields == ["region", "age"]
+
+
+def test_choosing_all_themes_clears_the_interpreted_industry(store):
+    text = interpreted(industry=store.values("업종")[0]).content[0].text
+    parsed = parse_interpretation(text, store, {"theme": "전체"})
+    assert parsed.theme is None and parsed.industry is None
+
+
+def test_all_negative_growth_is_described_as_a_decline(store):
+    parsed = parse_question("최근 1년 전 지역 증가율이 가장 높은 테마는?", None, store)
+    result = Analyzer(store).rank("테마", metric="growth")
+    result.facts.update(top_yoy=-0.8, bottom_yoy=-10.3)
+    _, summary, actions = narrate(parsed, [result])
+    assert "모든 테마의 소비가 전년 동기보다 감소" in summary and "증가율이 가장 높은" not in summary
+    assert actions[0]["badge"] == "상대적 강세"
+
+
+def test_interpreted_period_is_applied_when_the_tool_call_omits_it(store):
+    client = FakeClient([interpreted(months=3), reply(tool("analyze_trend", {}, "t1")),
+                         reply(tool("ask_user", {"question": "확인", "fields": []}, "t2"))])
+    list(ClaudeAgent(store, client=client).run("최근 3개월 소비 추세"))
+    assert len(json.loads(client.requests[2]["messages"][-1]["content"][0]["content"])["rows"]) == 3
+
+
+def test_invalid_theme_answer_keeps_the_interpreted_industry(store):
+    industry = store.values("업종")[0]
+    parsed = parse_interpretation(interpreted(industry=industry).content[0].text, store, {"theme": "없는 테마"})
+    assert parsed.industry == industry
+
+
+def test_zero_month_question_still_produces_a_report(store):
+    assert list(run_agent("제주시 최근 0개월 소비 추세", None, store))[-1]["type"] == "report"
+
+
+@pytest.mark.parametrize("text", ["자유 형식 답변", '{"analysis_type": "trend"}'])
+def test_malformed_interpretation_falls_back_to_rules(store, text):
+    client = FakeClient([reply(SimpleNamespace(type="text", text=text), stop="end_turn")])
+    events = list(run_agent("서귀포시 30대 식음료 프로모션 언제가 좋을까?", None, store, client=client))
+    assert any(e["type"] == "notice" for e in events) and events[-1]["report"]["mode"] == "규칙 기반 분석"
+
+
+def test_report_with_wrong_action_count_is_rejected(store):
+    args = report_args("요약입니다.")
+    args["actions"] = args["actions"][:3]
+    client = FakeClient([
+        interpreted(),
+        reply(tool("analyze_trend", {}, "t1")),
+        reply(tool("verify_result", {"result_id": "r1"}, "t2")),
+        reply(tool("build_report", args, "t3")),
+        reply(tool("build_report", report_args("요약입니다."), "t4")),
+    ])
+    assert list(ClaudeAgent(store, client=client).run("제주 소비 추세"))[-1]["type"] == "report"
+    rejected = client.requests[4]["messages"][-1]["content"][0]
+    assert rejected["is_error"] is True and "actions" in rejected["content"]
 
 
 def test_agent_failure_falls_back_to_rules(store):
