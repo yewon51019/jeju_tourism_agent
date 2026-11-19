@@ -20,7 +20,7 @@ API 키는 프로젝트 폴더의 `.env` 파일 한 곳에만 입력합니다. �
 | 키 | 입력할 파일 | 입력할 줄 | 키를 읽는 코드 |
 | --- | --- | --- | --- |
 | Gemini API 키 | `.env` | `GEMINI_API_KEY=발급받은 키` | `src/agent.py`의 `GeminiAgent` |
-| 제주데이터허브 프로젝트 키 | `.env` | `JEJU_HUB_PROJECT_KEY=발급받은 키` | `src/hub_api.py`의 `ensure_hub_data` |
+| 제주데이터허브 프로젝트 키 | `.env` | `JEJU_HUB_PROJECT_KEY=발급받은 키` | 명시적으로 실행하는 `src/hub_export.py` |
 
 ### 2.1 Gemini API 키 (외부 AI API, 무료 등급)
 
@@ -55,10 +55,16 @@ API 키는 프로젝트 폴더의 `.env` 파일 한 곳에만 입력합니다. �
    - [관광지 및 상업지구 요일별 카드 데이터](https://jejudatahub.net/data/view/data/608)
 4. `마이페이지 > 프로젝트 관리 > 해당 프로젝트`에서 프로젝트 키를 복사합니다.
 5. `.env`를 메모장으로 열어 `JEJU_HUB_PROJECT_KEY=` 뒤에 프로젝트 키를 붙여넣고 저장합니다.
-6. `run.bat`을 실행합니다. `data/raw/`에 데이터가 없으면 앱이 시작할 때 Open API를 호출해 `card_monthly.csv`, `card_weekday.csv`를 자동으로 저장합니다.
-7. 화면 상단의 데이터 표시가 `실제 데이터`로 바뀌면 완료입니다.
+6. 신규 수집이 필요할 때만 2.3절의 원본 수집 명령을 실행합니다. 이미 원본 CSV가 있으면 API 키 없이 아래 연결 명령만 실행합니다.
+7. `run.bat` 실행 후 화면 상단에 `실제 CSV`와 월간·요일별 기간이 표시되는지 확인합니다.
 
-`data/raw/`에 두 CSV가 이미 있으면 시작할 때 API를 다시 호출하지 않고 저장된 파일을 사용합니다. 데이터를 새로 받으려면 `download_data.bat`을 실행합니다.
+서버 시작 시 데이터 API를 호출하지 않습니다. `data/raw/`에 두 CSV가 있으면 해당 파일을 사용하며, 둘 다 없으면 합성 샘플로 표시됩니다. 하나만 있으면 오류를 표시합니다. 원본 연결 명령은 다음과 같으며 기존 앱 CSV를 덮어쓰지 않습니다. 이미 연결된 이 PC에서는 재실행하지 않아도 됩니다.
+
+```powershell
+.venv\Scripts\python.exe -m src.activate_data data/exports/jeju_20261119
+```
+
+현재 월간 19,573행(관광객·도민 구분 보존), 요일별 525행(내국인관광객만)이 연결되었습니다. 추가 API 호출은 없습니다. 상세 검증은 [실제 연결 기록](real-data-connection.md)을 참고하세요.
 
 ### 2.3 API 호출 코드 위치
 
@@ -79,6 +85,7 @@ API 키는 프로젝트 폴더의 `.env` 파일 한 곳에만 입력합니다. �
 | 보고서 형식과 수치 검증 | `src/agent.py`, `src/interpreter.py` | `_reject_report`, `ReportDraft` |
 | 제주데이터허브 Open API 호출 | `src/hub_api.py` | `fetch_all`, `download`, `ensure_hub_data` |
 | 명시적 원본 CSV 내보내기 | `src/hub_export.py` | `collect`, `save_csv`, `export` |
+| 저장한 원본의 로컬 연결 | `src/activate_data.py` | `read_verified`, `activate` |
 | 프롬프트 | `src/prompts.py` | `INTERPRET_PROMPT`, `SYSTEM_PROMPT` |
 
 ## 3. 사용 방법
@@ -108,7 +115,7 @@ API 키는 프로젝트 폴더의 `.env` 파일 한 곳에만 입력합니다. �
 | 규칙 기반 분석으로 전환됨 | 키 없음, API 장애 | 키와 인터넷 연결 확인 |
 | Gemini 무료 사용량 한도에 도달했다는 안내 | 무료 등급의 분당 또는 일일 한도 초과 | 1분 뒤 다시 실행하고, 계속되면 한도 초기화 후 실행 |
 | 프로젝트 키를 확인하라는 안내 | 키 오류 또는 프로젝트 담기 누락 | 안내에 표시된 데이터 번호(597번, 608번)를 2.2절의 3~4번에 따라 다시 확인 |
-| 합성 샘플로 실행된다는 안내 | 프로젝트 키 미입력 또는 다운로드 실패 | `.env`의 `JEJU_HUB_PROJECT_KEY` 확인 후 `run.bat` 다시 실행 |
+| 합성 샘플로 실행된다는 안내 | 앱용 로컬 CSV 두 파일 없음 | 원본을 준비한 뒤 2.2절 연결 명령 실행, 서버 재시작 |
 | 일일 호출 한도 초과 | 데이터별 일일 1,000회 초과 | 다음 날 다시 실행 |
 | 필수 컬럼이 없다는 오류 | CSV 형식이 다름 | `download_data.bat`으로 다시 다운로드 |
 

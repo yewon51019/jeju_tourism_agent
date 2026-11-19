@@ -14,13 +14,22 @@
 | --- | --- | --- |
 | [demo/index.html](demo/index.html) | 파일을 열어 바로 보는 초기 정적 데모 | 합성 데이터, 외부 API 없음 |
 | [app.py](app.py) / [start.bat](start.bat) | Streamlit 보조 앱, 키 설정·분석 검증 | 기본 합성 데이터, Claude 모드만 외부 AI 호출 (제출 ZIP 미포함) |
-| [src/server.py](src/server.py) / [run.bat](run.bat) | 디자인 시안 기반 FastAPI 주 웹 앱 | [사용자 매뉴얼](docs/user_manual.md) 참조, 동시 개발 변경은 별도 검토 |
+| [src/server.py](src/server.py) / [run.bat](run.bat) | 디자인 시안 기반 FastAPI 주 웹 앱 | 실제 로컬 CSV 연결, 데이터 API 자동 호출 없음 |
 
-**실제 CSV 취득과 실데이터 분석 서비스 완성은 다릅니다.** 2026-11-19 사용자 승인으로 두 API의 원본 CSV를 `data/exports/jeju_20261119/`에 저장했습니다. 월간 19,573행, 요일별 1,050행이며 원본 필드·관광객 구분을 보존했습니다. 이전 요일 API 403은 재현되지 않았고 이번 수집은 HTTP 200으로 완료했습니다. 앱 분석용 가공·연결, 실제 Gemini·센터 PC 검증은 남아 있습니다.
+**주 웹 앱에 실제 로컬 CSV를 연결했습니다.** 월간 19,573행과 내국인관광객 요일 자료 525행을 사용합니다. 성별·연령대·업종·관광객/도민 구분을 보존하며, 월간 기본값은 내국인관광객입니다. 원본은 월간 19,573행·요일별 1,050행 그대로 보존했습니다. 상세 검증은 [실제 연결 기록](docs/real-data-connection.md)에 있습니다.
 
-주 앱 시작 시 자동 데이터 수집을 수행하는 동시 개발 변경이 관찰되어 이번 오프라인 검증에서는 서버를 실행하지 않았습니다. 기존 키로 자동 호출되지 않는지 검토하기 전에는 정적 데모 또는 보조 앱의 오프라인 모드를 사용하세요.
+서버 시작 시 데이터 API를 자동 호출하지 않습니다. `run.bat` 또는 설치된 환경에서 `.venv\Scripts\python.exe -m src.server`로 실행하고 http://127.0.0.1:8501 에 접속하세요. 화면에 실제 CSV와 두 데이터의 기간이 표시됩니다. Gemini 키가 없으면 규칙 기반 분석으로 동작합니다. 정적 데모·Streamlit 보조 앱은 이번 실데이터 연결 대상이 아닙니다.
 
-2026-11-19 CSV 수집기 포함 로컬 검증: Python 162건 통과. 실제 수집은 이 오프라인 테스트와 별개로 데이터 API 207회(월간 196회·요일별 11회)를 호출했습니다. LLM 호출은 없습니다. 향후 기능 변경 시 [문서 동기화 규칙](AGENTS.md)을 따릅니다.
+2026-11-19 연결 후 검증: Python 168건 통과, 실제 CSV 웹 API 질문 5건 보고서 생성 및 독립 합산 일치. 이번 연결에서는 데이터 API·LLM을 호출하지 않았습니다. 앞선 원본 수집의 데이터 API 207회 호출 및 별도 작업의 Gemini 합성 데이터 시연과 구분합니다. 향후 기능 변경 시 [문서 동기화 규칙](AGENTS.md)을 따릅니다.
+
+## 저장한 원본을 앱에 연결
+
+```powershell
+.venv\Scripts\python.exe -m src.activate_data data/exports/jeju_20261119
+.venv\Scripts\python.exe scripts/verify_real_csv.py
+```
+
+이 PC에서는 연결 완료했습니다. 연결기는 원본 해시와 형식을 검증하고 `data/raw/card_monthly.csv`, `card_weekday.csv`를 생성합니다. 기존 앱 CSV가 있으면 덮어쓰지 않고 중단합니다. 공개 GitHub에는 실제 CSV와 키가 없으므로 다른 PC에서는 원본을 별도로 준비해야 합니다.
 
 ## 실제 원본 CSV 생성
 

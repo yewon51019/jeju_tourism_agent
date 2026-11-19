@@ -114,10 +114,14 @@ def describe_store(store: DataStore) -> dict[str, Any]:
         "is_sample": store.is_sample,
         "period": store.period,
         "datasets": {
-            "monthly": {"grain": "월·시군구·테마·업종·연령대·성별·관광객구분",
+            "monthly": {"grain": "월·시군구·업종·연령대·성별·관광객구분" if store.theme_is_industry_alias else "월·시군구·테마·업종·연령대·성별·관광객구분",
+                        "theme_is_industry_alias": store.theme_is_industry_alias,
                         "values": {column: store.values(column) for column in
                                    ("시군구", "테마", "업종", "연령대", "성별", "관광객구분")}},
-            "weekday": {"grain": "일·지구", "values": {"지구": store.values("지구")}},
+            "weekday": {"grain": "일·지구" if store.is_sample else "월·요일·지구",
+                        "period": f"{store.weekday_months[0]} ~ {store.weekday_months[-1]}",
+                        "population": "합성 데이터" if store.is_sample else "내국인관광객",
+                        "values": {"지구": store.values("지구")}},
         },
         "min_users_for_reliable_result": MIN_USERS,
     }

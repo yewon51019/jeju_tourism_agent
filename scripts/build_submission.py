@@ -28,7 +28,8 @@ SKIP_REQUIREMENTS = ("streamlit", "matplotlib", "anthropic")
 FILES = [".env.example", "run.bat", "download_data.bat", "pytest.ini", "docs/user_manual.md", "docs/data_usage_spec.md",
          "docs/disclosure.md", "scripts/fetch_hub_data.py", "scripts/evaluate.py", "tests/test_analysis.py",
          "tests/test_web_agent.py", "tests/test_rank_coverage.py", "tests/test_hub_fetch.py",
-         "tests/test_hub_export.py", "docs/csv-export.md"]
+         "tests/test_hub_export.py", "tests/test_real_csv_connection.py", "docs/csv-export.md",
+         "docs/real-data-connection.md", "scripts/refresh_reports.py", "scripts/check_offline.py"]
 TREES = {"src": "*.py", "static": "*"}
 EXCLUDED_DIRS = {"jeju_agent", "__pycache__"}
 SECRET = re.compile(r"sk-ant-[A-Za-z0-9_\-]{20,}|ghp_[A-Za-z0-9]{30,}|AIza[0-9A-Za-z_\-]{30,}")
@@ -61,9 +62,9 @@ def result_report(store, evaluation: str) -> str:
     source = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
     questions = re.findall(r"query: '([^']+)'", source)
     notice = ("> 이 문서의 실행 결과는 **합성 샘플 데이터**로 계산했으며 실제 제주 관광 통계가 아닙니다.\n\n" if store.is_sample
-              else f"> 이 문서의 실행 결과는 제주데이터허브 데이터({store.period})로 계산했습니다.\n\n")
+              else f"> 이 문서의 실행 결과는 제주데이터허브 실제 CSV로 계산했습니다. 월간 {store.period}, 요일별 {store.weekday_months[0]} ~ {store.weekday_months[-1]}. 현재 통계가 아닙니다.\n\n")
     lines = ["# 결과 설명자료", "", notice,
-             "원본 CSV 취득·검증 내역은 [수집 결과](csv-export.md)에 별도 기록합니다. 원본 확보와 아래 분석 사례의 실행 데이터는 구분합니다.", "",
+             "원본 CSV 취득은 [수집 결과](csv-export.md), 실제 연결·독립 합산 검증은 [연결 기록](real-data-connection.md)에 기록합니다. 아래 분석 사례의 데이터와 합성 데이터 회귀 평가를 구분합니다.", "",
              "## 1. 문제 정의", "",
              "제주 관광 소비 데이터는 공개되어 있지만, 분석 경험이 없는 소상공인과 센터 이용자는 데이터를 고르고 집계해 의사결정에 활용하기 어렵습니다. "
              "본 Agent는 자연어 질문만으로 소비 시기, 고객층, 지역, 업종을 분석하고 근거가 있는 보고서를 제공합니다.", "",
@@ -71,7 +72,7 @@ def result_report(store, evaluation: str) -> str:
              "| 단계 | 담당 | 내용 |", "| --- | --- | --- |",
              "| 질문 해석 | Gemini + Python | 지역, 업종, 고객층, 기간, 분석 유형을 정해진 JSON 형식으로 받아 코드로 검증 |",
              "| 조건 확인 | Gemini | 조건이 모호하면 사용자에게 선택지 제시 |",
-             "| 데이터 수집 | Python | 프로젝트 키가 있으면 제주데이터허브 Open API를 호출해 데이터 저장 |",
+             "| 데이터 준비 | Python | 승인된 원본 CSV를 로컬에서 변환·검증. 서버 시작 시 데이터 API 자동 호출 없음 |",
              "| 분석 계획 | Gemini | 데이터와 도구 선택 |",
              "| 집계·분석 | Python | 추세, 순위, 비중, 증감률, 요일 패턴 계산 |",
              "| 결과 검증 | Python | 원본 재계산, 조건 일치, 비중 합계, 표본 크기 점검 |",
@@ -91,7 +92,8 @@ def result_report(store, evaluation: str) -> str:
         checks = report["verification"]
         lines += [f"**{report['title']}**", "", report["summary"].replace("**", ""), "",
                   *[f"- {k['label']}: {k['value']} ({k['sub']})" for k in report["kpis"]],
-                  f"- 검증 결과: {checks['total']}건 중 {checks['passed']}건 통과, 경고 {checks['warnings']}건", ""]
+                  f"- 검증 결과: {checks['total']}건 중 {checks['passed']}건 통과, 경고 {checks['warnings']}건", "",
+                  "해석 시 주의사항:", "", *[f"- {item}" for item in report["limitations"]], ""]
     body = evaluation.replace("# 평가 결과", "## 5. 검증 방법 및 결과", 1)
     lines += [body, "",
               "검증 항목은 원본 재계산, 조건 일치, 비중 합계, 표본 크기입니다. 자동 테스트는 `tests/` 폴더에 있습니다.", "",

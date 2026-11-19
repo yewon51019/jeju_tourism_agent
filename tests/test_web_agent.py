@@ -24,7 +24,7 @@ GOOD_KEY = "AIza" + "a" * 35
 
 @pytest.fixture(scope="module")
 def store():
-    return load_store()
+    return load_store(sample_only=True)
 
 
 def tool(name, args, call_id):

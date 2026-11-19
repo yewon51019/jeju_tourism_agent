@@ -56,7 +56,7 @@ function renderSection(markdown, index, total) {
       return `<p>${escapeHtml(block)}</p>`;
     })
     .join("\n");
-  return `<section class="page"><div class="topline">JEJU SIGNAL / PROPOSAL</div>${content}<footer>구현 반영본 · 합성 데모 / 실제 원본 CSV 확보<span>${index + 1} / ${total}</span></footer></section>`;
+  return `<section class="page"><div class="topline">JEJU SIGNAL / PROPOSAL</div>${content}<footer>구현 반영본 · 실제 CSV 연결 / 합성 평가 구분<span>${index + 1} / ${total}</span></footer></section>`;
 }
 
 const markdown = fs.readFileSync(sourcePath, "utf8");

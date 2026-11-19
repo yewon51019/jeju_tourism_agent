@@ -86,6 +86,11 @@ class DataStore:
             return "합성 샘플 데이터 (실제 통계 아님)"
         return f"제주데이터허브 · {MONTHLY_NAME}, {WEEKDAY_NAME}"
 
+    @property
+    def theme_is_industry_alias(self) -> bool:
+        return (not self.is_sample and "업종" in self.monthly and "테마" in self.monthly
+                and self.monthly["테마"].equals(self.monthly["업종"]))
+
     def values(self, column: str) -> list[str]:
         frame = self.weekday if column == "지구" else self.monthly
         return sorted(frame[column].dropna().unique().tolist())
@@ -169,6 +174,10 @@ def preprocess_monthly(frame: pd.DataFrame, quality: list[str]) -> pd.DataFrame:
 
 
 def _preprocess_month_weekday(frame: pd.DataFrame, quality: list[str]) -> pd.DataFrame:
+    if "관광객구분" in frame:
+        before = len(frame)
+        frame = frame[frame["관광객구분"].astype(str).str.strip() == "내국인관광객"].copy()
+        quality.append(f"요일별 카드: 내국인관광객만 사용, 다른 구분 {before - len(frame):,}행 제외")
     frame = _standardize(frame, MONTH_WEEKDAY_COLUMNS, "요일별 카드")
     frame = _clean(frame, ["이용자수", "이용횟수", "이용금액"], "요일별 카드", quality)
     parsed = pd.to_datetime(frame["기준연월"].str.replace(r"\D", "", regex=True).str[:6], format="%Y%m", errors="coerce")
@@ -210,10 +219,10 @@ def preprocess_weekday(frame: pd.DataFrame, quality: list[str]) -> pd.DataFrame:
     return frame.reset_index(drop=True)
 
 
-def load_store(raw_dir: Path = RAW_DIR, sample_dir: Path = SAMPLE_DIR) -> DataStore:
+def load_store(raw_dir: Path = RAW_DIR, sample_dir: Path = SAMPLE_DIR, *, sample_only: bool = False) -> DataStore:
     """실제 데이터가 있으면 사용하고, 없으면 합성 샘플을 사용한다."""
-    has_monthly = (raw_dir / MONTHLY_FILE).exists()
-    has_weekday = (raw_dir / WEEKDAY_FILE).exists()
+    has_monthly = not sample_only and (raw_dir / MONTHLY_FILE).exists()
+    has_weekday = not sample_only and (raw_dir / WEEKDAY_FILE).exists()
     if has_monthly != has_weekday:
         absent = WEEKDAY_FILE if has_monthly else MONTHLY_FILE
         raise DataError(f"data/raw 폴더에 {absent} 파일이 없습니다. 두 파일을 함께 넣어 주세요.")
@@ -224,4 +233,10 @@ def load_store(raw_dir: Path = RAW_DIR, sample_dir: Path = SAMPLE_DIR) -> DataSt
     quality: list[str] = []
     monthly = preprocess_monthly(_read_csv(directory / MONTHLY_FILE), quality)
     weekday = preprocess_weekday(_read_csv(directory / WEEKDAY_FILE), quality)
-    return DataStore(monthly=monthly, weekday=weekday, is_sample=is_sample, quality=quality)
+    store = DataStore(monthly=monthly, weekday=weekday, is_sample=is_sample, quality=quality)
+    if store.theme_is_industry_alias:
+        quality.append("독립 테마 항목은 없으며 기존 테마 선택은 업종의 호환 별칭입니다.")
+    if not is_sample:
+        quality.append(f"로컬 CSV 사용 · 월간 {store.period} · 요일별 {store.weekday_months[0]} ~ {store.weekday_months[-1]}")
+        quality.append("월간 기본 분석은 내국인관광객, 요일별 연결 자료도 내국인관광객 기준입니다.")
+    return store

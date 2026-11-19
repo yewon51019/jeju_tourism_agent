@@ -19,7 +19,6 @@ from pydantic import BaseModel, Field
 from .agent import llm_available, run_agent
 from .data_pipeline import DataError, DataStore, load_store
 from .events import error
-from .hub_api import ensure_hub_data
 from .settings import DEFAULT_MODEL, MODEL_NAME, KeyRejected, delete_key, save_key
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -86,6 +85,9 @@ def status() -> dict:
         "ready": True, "llm": llm_available(), "model": os.getenv(MODEL_NAME) or DEFAULT_MODEL,
         "source": store.source, "period": store.period, "isSample": store.is_sample, "quality": store.quality,
         "dataNotice": _data_notice,
+        "weekdayPeriod": f"{store.weekday_months[0]} ~ {store.weekday_months[-1]}",
+        "monthlyRows": len(store.monthly), "weekdayRows": len(store.weekday),
+        "dataMode": "sample" if store.is_sample else "local_csv",
     }
 
 
@@ -120,10 +122,7 @@ def analyze(request: AnalyzeRequest) -> StreamingResponse:
 
 
 def main() -> None:
-    global _data_notice
-    _data_notice = ensure_hub_data()
-    if _data_notice:
-        print(_data_notice, flush=True)
+    # 데이터 API는 자동 호출하지 않는다. 이미 준비한 로컬 CSV만 사용한다.
     port = int(os.getenv("PORT", "8501"))
     if os.getenv("OPEN_BROWSER", "1") == "1":
         threading.Timer(1.2, lambda: webbrowser.open(f"http://127.0.0.1:{port}")).start()

@@ -401,7 +401,7 @@ async function loadStatus() {
       showToast(status.error, 'warning');
       return;
     }
-    $('dataBadgeText').textContent = `${status.isSample ? '합성 샘플' : '실제 데이터'} · ${status.period}`;
+    $('dataBadgeText').textContent = `${status.isSample ? '합성 샘플' : '실제 CSV'} · 월간 ${status.period}${!status.isSample && status.weekdayPeriod ? ` / 요일 ${status.weekdayPeriod}` : ''}`;
     $('modeBadge').textContent = status.llm ? 'Gemini 사용' : '규칙 기반 모드';
     $('keyBtn').textContent = status.llm ? 'API 키 관리' : 'API 키 입력';
     $('keyState').textContent = status.llm ? '저장된 API 키로 Gemini를 사용 중입니다.' : '저장된 API 키가 없습니다.';

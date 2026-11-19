@@ -138,6 +138,8 @@ class Analyzer:
         """지역·테마·업종·고객층의 순위와 전년 동기 대비 증감률을 계산한다."""
         if dimension not in DIMENSIONS:
             raise AnalysisError(f"순위 기준은 {', '.join(sorted(DIMENSIONS))} 중 하나여야 합니다.")
+        if dimension == "테마" and self.store.theme_is_industry_alias:
+            dimension = "업종"
         if metric not in ("amount", "growth"):
             raise AnalysisError("순위 지표는 amount 또는 growth여야 합니다.")
         cleaned = self._clean_filters(filters)

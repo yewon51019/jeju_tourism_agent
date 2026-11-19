@@ -192,6 +192,11 @@ def build_limitations(results: list[Result], store: DataStore, notices: list[str
         items.append(f"{weekday.spec['region']} 요일 비중은 제공되는 지구 중 {weekday.spec['region']} 구도심 기준입니다.")
     if not store.is_sample:
         items.append(f"제공 데이터의 수록 기간은 {store.period}이며 최근 소비 동향을 반영하지 않습니다.")
+        items.append("이용자수는 집계 행의 누적값으로 고유 관광객 수가 아닙니다. 1인당 표시는 이용금액을 누적 이용자수로 나눈 참고 비율입니다.")
+        if weekday:
+            items.append("요일별 연결 자료는 내국인관광객 기준이며 중국인관광객·제주도민 또는 특정 성별·연령대의 요일 패턴이 아닙니다.")
+        if store.theme_is_industry_alias:
+            items.append("독립 테마 통계는 제공되지 않아 테마 선택은 업종의 호환 별칭으로 처리합니다.")
     if any(c["status"] == "warning" for r in results for c in r.checks):
         items.append("일부 결과는 표본이 적어 변동성이 클 수 있습니다.")
     items.append("실행 제안은 소비 패턴에 근거한 참고 자료이며 매출 효과를 보장하지 않습니다.")

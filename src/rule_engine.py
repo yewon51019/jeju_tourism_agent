@@ -14,7 +14,8 @@ from .tools.registry import ToolBox
 LEISURE_WORDS = ["레저", "레져", "체험", "문화", "액티비티"]
 THEME_WORDS = {"식음료": ["식음료", "외식", "먹거리", "맛집", "음식", "카페", "디저트", "커피", "식당"],
                "숙박": ["숙박", "호텔", "리조트", "펜션"], "쇼핑": ["쇼핑", "기념품"], "소매": ["소매"],
-               "문화·레저": LEISURE_WORDS, "문화/레져": LEISURE_WORDS, "교통": ["교통", "렌터카"], "유흥": ["유흥", "주점"]}
+               "문화·레저": LEISURE_WORDS, "문화/레져": LEISURE_WORDS, "문화/레저": LEISURE_WORDS,
+               "교통": ["교통", "렌터카"], "유흥": ["유흥", "주점"]}
 INDUSTRY_WORDS = {"카페·디저트": ["카페", "디저트", "커피"], "음식점": ["음식점", "식당"]}
 DISTRICT_WORDS = {"중문": "중문관광단지", "성산": "성산일출봉", "올레시장": "서귀포매일올레시장", "표선": "표선해변",
                   "연동": "연동상권", "함덕": "함덕해변", "애월": "애월해안", "협재": "협재해변"}
@@ -137,8 +138,12 @@ def parse_question(question: str, answers: dict[str, str] | None, store: DataSto
 
     needs_grain = any(k in filters for k in ("age", "gender", "theme", "industry"))
     if parsed.district and "region" not in filters:
-        filters["region"] = DISTRICT_REGION.get(parsed.district, regions[0])
-        if needs_grain:
+        mapped_region = DISTRICT_REGION.get(parsed.district)
+        if mapped_region:
+            filters["region"] = mapped_region
+        if not mapped_region:
+            parsed.notices.append(f"{parsed.district}는 특정 시군구로 연결할 수 없어 월간 분석은 제주 전체 기준입니다.")
+        elif needs_grain:
             parsed.notices.append(f"업종·고객층은 시군구 단위로만 제공되어 {parsed.district} 대신 {filters['region']} 전체로 분석했습니다.")
         else:
             parsed.notices.append(f"요일 패턴은 {parsed.district} 기준이고, 월별 추세는 {filters['region']} 전체 기준입니다.")
@@ -146,7 +151,8 @@ def parse_question(question: str, answers: dict[str, str] | None, store: DataSto
         filters["region"] = TOWN_REGION[town]
         parsed.notices.append(f"읍면 단위 데이터가 없어 {town} 대신 {filters['region']} 전체로 분석했습니다.")
     if "도민" in filters.get("visitor", "") and parsed.intent in ("weekday", "timing"):
-        parsed.notices.append("요일별 데이터에는 도민과 관광객 구분이 없어 요일 비중은 지역 전체 소비 기준입니다.")
+        parsed.notices.append("요일별 데이터에는 도민과 관광객 구분이 없어 요일 비중은 지역 전체 소비 기준입니다." if store.is_sample else
+                              "요일별 연결 자료는 내국인관광객 기준으로, 제주도민의 요일 패턴을 뜻하지 않습니다.")
     if "외국인" in q:
         parsed.notices.append("외국인 관광객 데이터가 없어 내국인 관광객 기준으로 분석했습니다.")
     if re.search(r"시간대|오전|오후|저녁|점심", q):
@@ -163,7 +169,7 @@ def parse_question(question: str, answers: dict[str, str] | None, store: DataSto
 
 def clarification_fields(store: DataStore) -> list[dict[str, Any]]:
     return [{"key": "region", "label": "희망 분석 지역", "options": ["전체", *store.values("시군구")]},
-            {"key": "theme", "label": "관심 업종 테마", "options": ["전체", *store.values("테마")]},
+            {"key": "theme", "label": "관심 업종" if store.theme_is_industry_alias else "관심 업종 테마", "options": ["전체", *store.values("테마")]},
             {"key": "age", "label": "주요 고객 연령대", "options": ["전체", *store.values("연령대")]}]
 
 
@@ -187,7 +193,7 @@ def _execute(parsed: Parsed, box: ToolBox) -> list[Result]:
     elif parsed.intent == "growth":
         target = filters
         if "industry" not in filters:
-            dimension = "업종" if "theme" in filters else "테마"
+            dimension = "업종" if "theme" in filters or box.store.theme_is_industry_alias else "테마"
             ranking = run("rank_segments", {"dimension": dimension, "filters": filters, "metric": "growth", "months": months})
             if len(ranking["rows"]) > 1:
                 ids.append(ranking["result_id"])
@@ -312,6 +318,15 @@ def run_rules(question: str, answers: dict[str, str] | None, store: DataStore,
     yield step(4, "running", "검증된 수치로 보고서를 작성하고 있습니다.")
 
     title, summary, actions = narrate(parsed, results)
+    if not store.is_sample:
+        # 과거 통계의 최고 월을 앞으로 다가올 행사 일정처럼 제안하지 않는다.
+        for action in actions:
+            if action["badge"] == "시기 전략":
+                action.update(title="과거 소비 집중 월을 참고", desc="과거 자료에서 관찰한 집중 시기입니다. 현재 행사 일정과 최신 수요를 확인한 뒤 홍보 시기를 정하세요.")
+            elif action["badge"] == "상품 전략":
+                action.update(title="누적 이용자수 대비 금액을 참고", desc="집계 금액을 누적 이용자수로 나눈 비율이며 개인별 여행 예산이 아닙니다. 이 값만으로 상품 가격을 정하지 마세요.")
+            elif action["badge"] == "비수기 전략":
+                action.update(title="과거 저소비 월의 현재 수요 확인", desc="과거에 비중이 낮았던 달이 현재에도 비수기인지 최신 자료를 확인한 뒤 행사를 검토하세요.")
     text = " ".join([summary, *[a["desc"] for a in actions]])
     invalid = unsupported_numbers(text, results)
     if invalid:
