@@ -25,7 +25,7 @@ table{width:100%;border-collapse:collapse;margin:14px 0;font-size:12px;line-heig
 <p>참여자는 문제 정의·데이터 선정·Prompt와 도구·평가·최종 검수를 맡습니다. Agent는 조건 해석·데이터 선택·집계·검증·보고서를 수행하고, 사용자는 조건 보완과 최종 의사결정을 맡습니다.</p>
 <p>질문 → 조건 확인 → 데이터·분석 도구 선택 → 코드 계산 → 검증 → 차트·보고서. 조건이 불명확하면 되묻고, 계산 검증 실패를 성공으로 포장하지 않습니다.</p>
 <h2>3.2 모델 및 도구</h2>
-<p>설정 기본 모델 ID는 gemini-3.5-flash-lite이며 Gemini API 무료 등급을 사용합니다. 실제 모델 응답과 무료 사용량 한도는 평가용 키로 별도 검증해야 합니다. 로컬 테스트는 가짜 클라이언트와 로컬 모의 서버로 통신 흐름을 검증하며 실제 Gemini 호출 성공과 구분합니다.</p>
+<p>설정 기본 모델 ID는 gemini-3.5-flash-lite이며 Gemini API 무료 등급을 사용합니다. 실제 Gemini API로 예시 질문 2건을 실행해 보고서 생성과 수치 검증 통과를 확인했으며, 이 결과는 합성 샘플 데이터 기준입니다. 30개 질문 성능 평가와 평가 기간의 무료 사용량 한도는 별도 검증이 필요합니다.</p>
 <table><thead><tr><th scope="col">공통 목적</th><th scope="col">주 웹 앱의 구성</th></tr></thead><tbody><tr><td>데이터·기간 확인</td><td>list_datasets</td></tr><tr><td>월별 추세·전년 비교</td><td>analyze_trend</td></tr><tr><td>지역·업종·고객층 순위</td><td>rank_segments</td></tr><tr><td>지구별 요일 패턴</td><td>weekday_pattern</td></tr><tr><td>독립 재계산</td><td>verify_result</td></tr><tr><td>추가 질문·보고서 제출</td><td>ask_user, build_report</td></tr></tbody></table>
 <p>원안의 query_spending·create_chart는 보조 Streamlit 엔진에 있으며, 주 웹 앱은 분석 도구와 Chart.js로 해당 역할을 나눕니다. 주 앱은 최대 14회 Agent 루프, 보조 엔진은 별도 재분석 제한을 사용하므로 원안의 “최대 2회 재분석”을 공통 구현 완료로 적지 않습니다.</p>
 <p>자율 범위는 허용된 분석 도구에 한정합니다. 원본 수정·개인 식별·외부 자동 게시·근거 없는 수치 생성은 수행하지 않습니다.</p><footer>구현 반영본 · 합성 데모 / 실제 원본 CSV 확보<span>4 / 8</span></footer></section>

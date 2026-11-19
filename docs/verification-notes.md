@@ -76,7 +76,7 @@ API 확인 전 GitHub 복구 지점은 d53ca2da2b1c2df8e32dc5c1cfb6ea8455cdbacb�
 | 수정 Python 파일 편집기 진단 | 오류 없음 |
 | 실제 LLM·유료 API 평가 | 미실행 |
 | Gemini SDK 요청 형식 | 로컬 모의 서버에서 질문 해석부터 보고서까지 5회 요청 통과, thought signature 반환 확인 |
-| Gemini 실제 서버 연결 | 2026-11-19 정상 키로 예시 질문 1건 실행 성공(`gemini-3.5-flash-lite`, 7.1초, 실행 모드 Gemini Agent, 검증 4건 통과). 합성 샘플 데이터 기준이며 성능 평가가 아님 |
+| Gemini 실제 서버 연결 | 2026-11-19 정상 키로 예시 질문 2건 실행 성공(`gemini-3.5-flash-lite`, 실행 모드 Gemini Agent, 수치 검증 4/4건과 8/8건 통과). 합성 샘플 데이터 기준이며 성능 평가가 아님 |
 | 인쇄 페이지·센터 PC 검증 | 미실행 |
 
 Python 실행은 외부 소켓 연결을 차단하고 로컬 loopback 연결만 허용했습니다.

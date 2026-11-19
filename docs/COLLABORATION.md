@@ -1,5 +1,13 @@
 # 협업 작업 경계
 
+## 실데이터 연결 후 완료 절차 (2026-11-19, Claude 인계)
+
+- 사용자가 `.env`의 키를 모두 삭제했다. 키가 없으므로 실제 Gemini·데이터 API 호출은 사용자가 키를 다시 넣기 전까지 하지 않는다.
+- Codex 작업 중인 파일(src/activate_data.py, src/data_pipeline.py, src/server.py 등)은 Claude가 수정하지 않았다.
+- 서버 시작 시 자동 수집을 제거했으므로 다음 문구를 실제 절차로 고쳐야 한다: docs/user_manual.md 2.2절 6번과 57행, docs/submission/README.md 5번, .env.example의 제주데이터허브 설명, docs/data_usage_spec.md의 수집 1번, 기획서 4.3절.
+- 완료 조건: data/raw에 실제 CSV 연결, 전체 테스트 통과, scripts/build_submission.py 출력이 `제주데이터허브 실제 데이터`, docs/result_report.md에 합성 샘플 문구 없음.
+- 제출 직전 사용자 작업: 평가용 Gemini 키를 EVALUATION_KEY.txt에 입력하고 ZIP을 다시 빌드, 실제 데이터로 예시 질문을 실행해 실행 모드 `Gemini Agent` 확인.
+
 ## 실제 CSV 생성 완료 (2026-11-19)
 
 - 사용자 최신 지시 “이제 실제 csv로 만드는 작업해”에 따라 두 API의 일회성 원본 CSV 취득을 수행했다. 기존 임시 확인 범위에서 명시적으로 확대 승인된 작업이다. 지속 자동 수집·LLM 호출·배포·제출은 하지 않았다.
